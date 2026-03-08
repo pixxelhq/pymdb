@@ -53,8 +53,8 @@ class PusHeader(NamedTuple):
     pus_tc_start_exec_flag: ArgumentMember
     pus_tc_progress_exec_flag: ArgumentMember
     pus_tc_completion_flag: ArgumentMember
-    pus_tc_service_type: ArgumentMember
-    pus_tc_subservice_type: ArgumentMember
+    pus_tc_service_type: IntegerArgument
+    pus_tc_subservice_type: IntegerArgument
     pus_tc_source_id: IntegerArgument
     pus_tc_command: Command
 
@@ -198,25 +198,29 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         name="pus_acceptance_flag",
         encoding=uint1_t,
         zero_string_value="NotPresent",
-        one_string_value="Present"
+        one_string_value="Present",
+        initial_value="Present"
     )
     start_exec_flag = BooleanMember(
         name="pus_start_exec_flag",
         encoding=uint1_t,
         zero_string_value="NotPresent",
-        one_string_value="Present"
+        one_string_value="Present",
+        initial_value="NotPresent"
     )
     progress_exec_flag = BooleanMember(
         name="pus_progress_exec_flag",
         encoding=uint1_t,
         zero_string_value="NotPresent",
-        one_string_value="Present"
+        one_string_value="Present",
+        initial_value="NotPresent"
     )
     completion_flag = BooleanMember(
         name="pus_completion_flag",
         encoding=uint1_t,
         zero_string_value="NotPresent",
-        one_string_value="Present"
+        one_string_value="Present",
+        initial_value="Present"
     )
     pus_tc_acknowlegement_flags = AggregateArgument(
         name="pus_tc_acknowledgement_flags",
@@ -227,17 +231,21 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
             completion_flag
         ]
     )
-    pus_tc_message_type = AggregateArgument(
-        name="pus_message_type",
-        members=[
-            pus_service_type_member,
-            pus_subservice_type_member
-        ],
+    pus_tc_service_type = IntegerArgument(
+        name="pus_service_type",
+        signed=False,
+        encoding=uint8_t
+    )
+    pus_tc_subservice_type = IntegerArgument(
+        name="pus_subservice_type",
+        signed=False,
+        encoding=uint8_t
     )
     pus_tc_source_id = IntegerArgument(
         name="pus_source_id",
         signed=False,
-        encoding=uint16_t
+        encoding=uint16_t,
+        default=0
     )
 
     pus_tc_command = Command(
@@ -250,7 +258,8 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         },
         arguments=[
             pus_tc_acknowlegement_flags,
-            pus_tc_message_type,
+            pus_tc_service_type,
+            pus_tc_subservice_type,
             pus_tc_source_id
         ],
         entries=[
@@ -260,7 +269,8 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
                 bits=4
             ),
             ArgumentEntry(pus_tc_acknowlegement_flags),
-            ArgumentEntry(pus_tc_message_type),
+            ArgumentEntry(pus_tc_service_type),
+            ArgumentEntry(pus_tc_subservice_type),
             ArgumentEntry(pus_tc_source_id)
         ]   
     )
@@ -280,14 +290,6 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
     pus_tc_completion_flag = ArgumentMember(
         pus_tc_acknowlegement_flags,
         completion_flag
-    )
-    pus_tc_service_type = ArgumentMember(
-        pus_tc_message_type,
-        pus_service_type_member
-    )
-    pus_tc_subservice_type = ArgumentMember(
-        pus_tc_message_type,
-        pus_subservice_type_member
     )
 
     return PusHeader(
