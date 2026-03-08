@@ -31,7 +31,14 @@ from yamcs.pymdb.commands import (
     EnumeratedArgument,
     FixedValueEntry,
 )
-from yamcs.pymdb.containers import Container, ContainerEntry, ParameterEntry
+from yamcs.pymdb.containers import (
+    Container,
+    ContainerEntry,
+    IndirectParameterEntry,
+    ParameterEntry,
+    RepeatEntry,
+    TimeAssociation,
+)
 from yamcs.pymdb.datatypes import (
     AbsoluteTimeDataType,
     AbsoluteTimeMember,
@@ -465,6 +472,8 @@ class XTCE12Generator:
                 self.add_fixed_value_entry(el, command, entry)
             elif isinstance(entry, ArgumentEntry):
                 self.add_argument_ref_entry(el, command, entry)
+            elif isinstance(entry, IndirectParameterEntry):
+                self.add_indirect_parameter_ref_entry(el, command, entry)
             elif isinstance(entry, ParameterEntry):
                 self.add_parameter_ref_entry(el, command, entry)
             else:
@@ -513,6 +522,9 @@ class XTCE12Generator:
             fv_el = ET.SubElement(loc_el, "FixedValue")
             fv_el.text = str(entry.bitpos + entry.offset)
 
+        if entry.repeat:
+            self.add_repeat_entry(el, command.system, entry.repeat, allow_argument=True)
+
         if entry.condition:
             cond_el = ET.SubElement(el, "IncludeCondition")
             expr_el = ET.SubElement(cond_el, "BooleanExpression")
@@ -544,6 +556,9 @@ class XTCE12Generator:
             loc_el.attrib["referenceLocation"] = "containerStart"
             fv_el = ET.SubElement(loc_el, "FixedValue")
             fv_el.text = str(entry.bitpos + entry.offset)
+
+        if entry.repeat:
+            self.add_repeat_entry(el, command.system, entry.repeat, allow_argument=True)
 
         if entry.condition:
             cond_el = ET.SubElement(el, "IncludeCondition")
@@ -2264,6 +2279,8 @@ class XTCE12Generator:
         for entry in container.entries:
             if isinstance(entry, ParameterEntry):
                 self.add_parameter_ref_entry(el, container, entry)
+            elif isinstance(entry, IndirectParameterEntry):
+                self.add_indirect_parameter_ref_entry(el, container, entry)
             elif isinstance(entry, ContainerEntry):
                 self.add_container_ref_entry(el, container, entry)
             else:
@@ -2297,6 +2314,14 @@ class XTCE12Generator:
             fv_el = ET.SubElement(loc_el, "FixedValue")
             fv_el.text = str(entry.bitpos + entry.offset)
 
+        if entry.repeat:
+            self.add_repeat_entry(
+                el,
+                container.system,
+                entry.repeat,
+                allow_argument=isinstance(container, Command),
+            )
+
         if entry.condition:
             cond_el = ET.SubElement(el, "IncludeCondition")
             expr_el = ET.SubElement(cond_el, "BooleanExpression")
@@ -2305,6 +2330,62 @@ class XTCE12Generator:
                 system=container.system,
                 expression=entry.condition,
             )
+
+        if entry.time_association:
+            self.add_time_association(el, container.system, entry.time_association)
+
+    def add_indirect_parameter_ref_entry(
+        self,
+        parent: ET.Element,
+        container: Container | Command,
+        entry: IndirectParameterEntry,
+    ):
+        el = ET.SubElement(parent, "IndirectParameterRefEntry")
+        if entry.alias_namespace:
+            el.attrib["aliasNameSpace"] = entry.alias_namespace
+        if entry.short_description:
+            el.attrib["shortDescription"] = entry.short_description
+
+        loc_el = ET.SubElement(el, "LocationInContainerInBits")
+
+        if entry.bitpos is None:
+            loc_el.attrib["referenceLocation"] = "previousEntry"
+            fv_el = ET.SubElement(loc_el, "FixedValue")
+            fv_el.text = str(entry.offset)
+        else:
+            loc_el.attrib["referenceLocation"] = "containerStart"
+            fv_el = ET.SubElement(loc_el, "FixedValue")
+            fv_el.text = str(entry.bitpos + entry.offset)
+
+        if entry.repeat:
+            self.add_repeat_entry(
+                el,
+                container.system,
+                entry.repeat,
+                allow_argument=isinstance(container, Command),
+            )
+
+        if entry.condition:
+            cond_el = ET.SubElement(el, "IncludeCondition")
+            expr_el = ET.SubElement(cond_el, "BooleanExpression")
+            self.add_expression_condition(
+                expr_el,
+                system=container.system,
+                expression=entry.condition,
+            )
+
+        if entry.time_association:
+            self.add_time_association(el, container.system, entry.time_association)
+
+        inst_el = ET.SubElement(el, "ParameterInstance")
+        inst_el.attrib["parameterRef"] = self.make_parameter_ref(
+            entry.parameter_instance,
+            start=container.system,
+        )
+        inst_el.attrib["instance"] = str(entry.instance)
+        inst_el.attrib["useCalibratedValue"] = _to_xml_value(
+            entry.use_calibrated_value
+        )
 
     def add_container_ref_entry(
         self,
@@ -2331,6 +2412,9 @@ class XTCE12Generator:
             fv_el = ET.SubElement(loc_el, "FixedValue")
             fv_el.text = str(entry.bitpos + entry.offset)
 
+        if entry.repeat:
+            self.add_repeat_entry(el, container.system, entry.repeat, allow_argument=False)
+
         if entry.condition:
             cond_el = ET.SubElement(el, "IncludeCondition")
             expr_el = ET.SubElement(cond_el, "BooleanExpression")
@@ -2339,6 +2423,78 @@ class XTCE12Generator:
                 system=container.system,
                 expression=entry.condition,
             )
+
+        if entry.time_association:
+            self.add_time_association(el, container.system, entry.time_association)
+
+    def add_repeat_entry(
+        self,
+        parent: ET.Element,
+        system: System,
+        repeat: RepeatEntry,
+        *,
+        allow_argument: bool,
+    ):
+        el = ET.SubElement(parent, "RepeatEntry")
+        count_el = ET.SubElement(el, "Count")
+        self.add_integer_value(count_el, system, repeat.count, allow_argument)
+
+        if repeat.offset is not None:
+            offset_el = ET.SubElement(el, "Offset")
+            self.add_integer_value(offset_el, system, repeat.offset, allow_argument)
+
+    def add_time_association(
+        self,
+        parent: ET.Element,
+        system: System,
+        time_association: TimeAssociation,
+    ):
+        el = ET.SubElement(parent, "TimeAssociation")
+        el.attrib["parameterRef"] = self.make_parameter_ref(
+            time_association.parameter,
+            start=system,
+        )
+        el.attrib["instance"] = str(time_association.instance)
+        el.attrib["useCalibratedValue"] = _to_xml_value(
+            time_association.use_calibrated_value
+        )
+        el.attrib["interpolateTime"] = _to_xml_value(
+            time_association.interpolate_time
+        )
+        el.attrib["unit"] = time_association.unit.value
+
+        if time_association.offset is not None:
+            el.attrib["offset"] = str(time_association.offset)
+
+    def add_integer_value(
+        self,
+        parent: ET.Element,
+        system: System,
+        value: int | ParameterValue | ArgumentValue,
+        allow_argument: bool,
+    ):
+        if isinstance(value, int):
+            ET.SubElement(parent, "FixedValue").text = str(value)
+        elif isinstance(value, ParameterValue):
+            dyn_el = ET.SubElement(parent, "DynamicValue")
+            ref_el = ET.SubElement(dyn_el, "ParameterInstanceRef")
+            ref_el.attrib["parameterRef"] = self.make_parameter_ref(
+                value.parameter,
+                start=system,
+            )
+        elif isinstance(value, ArgumentValue):
+            if not allow_argument:
+                raise ExportError("Cannot reference an argument from a container repeat")
+
+            dyn_el = ET.SubElement(parent, "DynamicValue")
+            ref_el = ET.SubElement(dyn_el, "ArgumentInstanceRef")
+            reference = value.argument
+            if isinstance(reference, Argument):
+                ref_el.attrib["argumentRef"] = reference.name
+            else:
+                ref_el.attrib["argumentRef"] = reference
+        else:
+            raise ExportError(f"Unexpected integer value {value.__class__}")
 
     def make_ref(self, target: str, start: System):
         if target.startswith("/"):
