@@ -112,9 +112,9 @@ class AbsoluteTimeArgument(Argument, AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch,
         *,
         default: Any = None,
+        reference: Epoch | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,

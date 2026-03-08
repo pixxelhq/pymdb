@@ -94,7 +94,7 @@ class DataType:
 class AbsoluteTimeDataType(DataType):
     def __init__(
         self,
-        reference: Epoch | datetime | AbsoluteTimeParameter,
+        reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -109,7 +109,7 @@ class AbsoluteTimeDataType(DataType):
             units=units,
             encoding=encoding,
         )
-        self.reference: Epoch | datetime | AbsoluteTimeParameter = reference
+        self.reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = reference
 
 
 class AggregateDataType(DataType):
@@ -382,7 +382,7 @@ class AbsoluteTimeMember(Member, AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch | datetime | AbsoluteTimeParameter,
+        reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = None,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,

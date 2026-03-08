@@ -68,6 +68,7 @@ from yamcs.pymdb.encodings import (
     IntegerEncodingScheme,
     IntegerTimeEncoding,
     StringEncoding,
+    BinaryTimeEncoding
 )
 from yamcs.pymdb.exceptions import ExportError
 from yamcs.pymdb.expressions import (
@@ -695,16 +696,9 @@ class XTCE12Generator:
         if data_type.encoding:
             self.add_data_encoding(el, system, data_type.encoding)
 
-        ref_el = ET.SubElement(el, "ReferenceTime")
-
-        if isinstance(data_type.reference, Epoch):
-            epoch_el = ET.SubElement(ref_el, "Epoch")
-            if data_type.reference == Epoch.UNIX:
-                epoch_el.text = "UNIX"
-            else:
-                raise Exception(f"Unexpected epoch {data_type.reference}")
-        else:
-            raise Exception("Arguments can only reference epoch")
+        if data_type.reference is not None:
+            ref_el = ET.SubElement(el, "ReferenceTime")
+            self.add_absolute_time_reference(ref_el, data_type.reference, system)
 
     def add_binary_argument_type(
         self,
@@ -1336,32 +1330,40 @@ class XTCE12Generator:
         if data_type.encoding:
             self.add_data_encoding(el, system, data_type.encoding)
 
-        ref_el = ET.SubElement(el, "ReferenceTime")
+        if data_type.reference is not None:
+            ref_el = ET.SubElement(el, "ReferenceTime")
+            self.add_absolute_time_reference(ref_el, data_type.reference, system)
 
-        if isinstance(data_type.reference, Epoch):
-            epoch_el = ET.SubElement(ref_el, "Epoch")
-            if data_type.reference == Epoch.GPS:
+    def add_absolute_time_reference(
+        self,
+        parent: ET.Element,
+        reference: Epoch | datetime | Parameter | ParameterMember | str,
+        system: System,
+    ):
+        if isinstance(reference, Epoch):
+            epoch_el = ET.SubElement(parent, "Epoch")
+            if reference == Epoch.GPS:
                 epoch_el.text = "GPS"
-            elif data_type.reference == Epoch.J2000:
+            elif reference == Epoch.J2000:
                 epoch_el.text = "J2000"
-            elif data_type.reference == Epoch.TAI:
+            elif reference == Epoch.TAI:
                 epoch_el.text = "TAI"
-            elif data_type.reference == Epoch.UNIX:
+            elif reference == Epoch.UNIX:
                 epoch_el.text = "UNIX"
             else:
-                raise Exception(f"Unexpected epoch {data_type.reference}")
-        elif isinstance(data_type.reference, datetime):
-            epoch_el = ET.SubElement(ref_el, "Epoch")
-            if data_type.reference.tzinfo:
-                utctime = data_type.reference.astimezone(tz=timezone.utc)
+                raise Exception(f"Unexpected epoch {reference}")
+        elif isinstance(reference, datetime):
+            epoch_el = ET.SubElement(parent, "Epoch")
+            if reference.tzinfo:
+                utctime = reference.astimezone(tz=timezone.utc)
                 epoch_el.text = utctime.isoformat().replace("+00:00", "Z")
             else:
-                epoch_el.text = data_type.reference.isoformat() + "Z"
+                epoch_el.text = reference.isoformat() + "Z"
         else:
-            offset_el = ET.SubElement(ref_el, "OffsetFrom")
+            offset_el = ET.SubElement(parent, "OffsetFrom")
             offset_el.attrib["parameterRef"] = self.make_parameter_ref(
-                data_type.reference,
-                start=self.system,
+                reference,
+                start=system,
             )
 
     def add_binary_parameter_type(
@@ -1717,6 +1719,10 @@ class XTCE12Generator:
                     "Calibrators on IntegerTimeEncoding are not currently supported"
                 )
             self.add_integer_time_encoding(parent, encoding)
+        elif isinstance(encoding, BinaryTimeEncoding):
+            if calibrator:
+                raise ExportError("XTCE does not allow calibrators with BinaryEncoding")
+            self.add_binary_time_encoding(parent, system, encoding)
         elif isinstance(encoding, BinaryEncoding):
             if calibrator:
                 raise ExportError("XTCE does not allow calibrators with BinaryEncoding")
@@ -1731,6 +1737,14 @@ class XTCE12Generator:
             self.add_string_data_encoding(parent, encoding)
         else:
             raise Exception("Unexpected encoding")
+
+    def add_binary_time_encoding(
+        self, parent: ET.Element, system: System, encoding: BinaryEncoding
+    ):
+        el = ET.SubElement(parent, "Encoding")
+        el.attrib["units"] = "seconds"
+
+        self.add_binary_data_encoding(el, system, encoding)
 
     def add_binary_data_encoding(
         self, parent: ET.Element, system: System, encoding: BinaryEncoding
