@@ -134,7 +134,7 @@ def add_ccsds_header(system: System) -> CcsdsHeader:
 
     tc_secondary_header = BooleanArgument(
         name="ccsds_secondary_header",
-        zero_string_value="Not Present",
+        zero_string_value="NotPresent",
         one_string_value="Present",
         encoding=uint1_t,
     )
