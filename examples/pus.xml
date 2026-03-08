@@ -3,7 +3,7 @@
 This file was generated with Yamcs PyMDB.
 See https://github.com/yamcs/pymdb
 -->
-<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/XTCE/20180204 https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd" name="RVM">
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/XTCE/20180204 https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd" name="jTYU">
   <TelemetryMetaData>
     <ParameterTypeSet>
       <AggregateParameterType name="absolute_time">
@@ -74,13 +74,21 @@ use a different convention where 0=core and 1=payload.
       <IntegerParameterType name="ccsds_packet_sequence__source_sequence_count" signed="false" sizeInBits="32">
         <IntegerDataEncoding sizeInBits="14" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
       </IntegerParameterType>
-      <AbsoluteTimeParameterType name="onboard_time">
-        <Encoding offset="0" scale="0.001" units="seconds">
-          <IntegerDataEncoding sizeInBits="32" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      <AbsoluteTimeParameterType name="onboard_cuctime">
+        <Encoding units="seconds">
+          <BinaryDataEncoding>
+            <SizeInBits>
+              <FixedValue>-1</FixedValue>
+            </SizeInBits>
+            <FromBinaryTransformAlgorithm name="Unnamed">
+              <AlgorithmText language="Java">org.yamcs.algo.TimeBinaryDecoder({
+                        type: CUC,
+                        epoch: Epoch.UNIX,
+                        implicitPField: 46
+                    })</AlgorithmText>
+            </FromBinaryTransformAlgorithm>
+          </BinaryDataEncoding>
         </Encoding>
-        <ReferenceTime>
-          <Epoch>UNIX</Epoch>
-        </ReferenceTime>
       </AbsoluteTimeParameterType>
       <IntegerParameterType name="pus_destination_id" signed="false" sizeInBits="32">
         <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
@@ -123,7 +131,7 @@ use a different convention where 0=core and 1=payload.
       <Parameter name="ccsds_packet_sequence" parameterTypeRef="ccsds_packet_sequence" shortDescription="Second word of the primary CCSDS header">
         <ParameterProperties dataSource="telemetered" persistence="true"/>
       </Parameter>
-      <Parameter name="onboard_time" parameterTypeRef="onboard_time">
+      <Parameter name="onboard_cuctime" parameterTypeRef="onboard_cuctime">
         <ParameterProperties dataSource="telemetered" persistence="true"/>
       </Parameter>
       <Parameter name="pus_destination_id" parameterTypeRef="pus_destination_id">
@@ -179,7 +187,7 @@ The first 6 bytes of a Space Packet are known as the
       <SequenceContainer name="pus_space_packet" abstract="true">
         <BinaryEncoding>
           <SizeInBits>
-            <FixedValue>152</FixedValue>
+            <FixedValue>488</FixedValue>
           </SizeInBits>
         </BinaryEncoding>
         <EntryList>
@@ -213,6 +221,11 @@ The first 6 bytes of a Space Packet are known as the
               <FixedValue>0</FixedValue>
             </LocationInContainerInBits>
           </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="onboard_cuctime">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>-48</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
         </EntryList>
         <BaseContainer containerRef="ccsds_space_packet"/>
       </SequenceContainer>
@@ -233,6 +246,11 @@ The first 6 bytes of a Space Packet are known as the
               <FixedValue>0</FixedValue>
             </LocationInContainerInBits>
           </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="onboard_cuctime">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>-48</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
         </EntryList>
         <BaseContainer containerRef="ccsds_space_packet">
           <RestrictionCriteria>
@@ -247,30 +265,30 @@ The first 6 bytes of a Space Packet are known as the
         </BaseContainer>
       </SequenceContainer>
     </ContainerSet>
-    <AlgorithmSet>
-      <CustomAlgorithm name="onboard_time_generation">
-        <AncillaryDataSet>
-          <AncillaryData name="Yamcs:AlgorithmMandatoryInput">basic</AncillaryData>
-          <AncillaryData name="Yamcs:AlgorithmMandatoryInput">frac</AncillaryData>
-        </AncillaryDataSet>
-        <AlgorithmText language="JavaScript">
-gentime.rawValue = basic.rawValue * 1000 + frac.rawValue;
-</AlgorithmText>
-        <InputSet>
-          <InputParameterInstanceRef parameterRef="absolute_time/basic_time" instance="0" inputName="basic"/>
-          <InputParameterInstanceRef parameterRef="absolute_time/fractional_time" instance="0" inputName="frac"/>
-        </InputSet>
-        <OutputSet>
-          <OutputParameterRef parameterRef="onboard_time" outputName="gentime"/>
-        </OutputSet>
-        <TriggerSet>
-          <OnParameterUpdateTrigger parameterRef="absolute_time"/>
-        </TriggerSet>
-      </CustomAlgorithm>
-    </AlgorithmSet>
   </TelemetryMetaData>
   <CommandMetaData>
     <ArgumentTypeSet>
+      <BinaryArgumentType name="Set_heater_mapping__index_0">
+        <BinaryDataEncoding>
+          <SizeInBits>
+            <FixedValue>16</FixedValue>
+          </SizeInBits>
+        </BinaryDataEncoding>
+      </BinaryArgumentType>
+      <BinaryArgumentType name="Set_heater_mapping__index_1">
+        <BinaryDataEncoding>
+          <SizeInBits>
+            <FixedValue>32</FixedValue>
+          </SizeInBits>
+        </BinaryDataEncoding>
+      </BinaryArgumentType>
+      <BinaryArgumentType name="Set_heater_mapping__index_2">
+        <BinaryDataEncoding>
+          <SizeInBits>
+            <FixedValue>8</FixedValue>
+          </SizeInBits>
+        </BinaryDataEncoding>
+      </BinaryArgumentType>
       <BooleanArgumentType name="ccsds_space_packet__ccsds_secondary_header" zeroStringValue="NotPresent" oneStringValue="Present">
         <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
       </BooleanArgumentType>
@@ -297,23 +315,98 @@ gentime.rawValue = basic.rawValue * 1000 + frac.rawValue;
       <BooleanArgumentType name="pus_space_packet__pus_tc_acknowledgement_flags__pus_completion_flag" zeroStringValue="NotPresent" oneStringValue="Present">
         <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
       </BooleanArgumentType>
-      <AggregateArgumentType name="pus_space_packet__pus_message_type">
-        <MemberList>
-          <Member name="pus_service_type" typeRef="pus_space_packet__pus_message_type__pus_service_type"/>
-          <Member name="pus_subservice_type" typeRef="pus_space_packet__pus_message_type__pus_subservice_type"/>
-        </MemberList>
-      </AggregateArgumentType>
-      <IntegerArgumentType name="pus_space_packet__pus_message_type__pus_service_type" signed="false" sizeInBits="32">
+      <IntegerArgumentType name="pus_space_packet__pus_service_type" signed="false" sizeInBits="32">
         <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
       </IntegerArgumentType>
-      <IntegerArgumentType name="pus_space_packet__pus_message_type__pus_subservice_type" signed="false" sizeInBits="32">
+      <IntegerArgumentType name="pus_space_packet__pus_subservice_type" signed="false" sizeInBits="32">
         <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
       </IntegerArgumentType>
-      <IntegerArgumentType name="pus_space_packet__pus_source_id" signed="false" sizeInBits="32">
+      <IntegerArgumentType name="pus_space_packet__pus_source_id" signed="false" sizeInBits="32" initialValue="0">
         <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
       </IntegerArgumentType>
     </ArgumentTypeSet>
     <MetaCommandSet>
+      <MetaCommand name="Set_heater_mapping" abstract="false" shortDescription="PUS TC[6,1] command">
+        <BaseMetaCommand metaCommandRef="pus_space_packet">
+          <ArgumentAssignmentList>
+            <ArgumentAssignment argumentName="pus_service_type" argumentValue="6"/>
+            <ArgumentAssignment argumentName="pus_subservice_type" argumentValue="1"/>
+            <ArgumentAssignment argumentName="ccsds_apid" argumentValue="100"/>
+          </ArgumentAssignmentList>
+        </BaseMetaCommand>
+        <ArgumentList>
+          <Argument name="index_0" argumentTypeRef="Set_heater_mapping__index_0"/>
+          <Argument name="index_1" argumentTypeRef="Set_heater_mapping__index_1"/>
+          <Argument name="index_2" argumentTypeRef="Set_heater_mapping__index_2"/>
+        </ArgumentList>
+        <CommandContainer name="Set_heater_mapping">
+          <EntryList>
+            <FixedValueEntry binaryValue="0a" sizeInBits="8" name="memory_id">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="0a" sizeInBits="8" name="base_id">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="03" sizeInBits="8" name="n_count">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="0000" sizeInBits="16" name="offset">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="02" sizeInBits="8" name="length">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <ArgumentRefEntry argumentRef="index_0">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <FixedValueEntry binaryValue="0002" sizeInBits="16" name="offset">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="04" sizeInBits="8" name="length">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <ArgumentRefEntry argumentRef="index_1">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <FixedValueEntry binaryValue="0006" sizeInBits="16" name="offset">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="01" sizeInBits="8" name="length">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <ArgumentRefEntry argumentRef="index_2">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+          </EntryList>
+          <BaseContainer containerRef="pus_space_packet"/>
+        </CommandContainer>
+        <DefaultSignificance consequenceLevel="normal"/>
+        <VerifierSet/>
+      </MetaCommand>
       <MetaCommand name="ccsds_space_packet" abstract="true" shortDescription="CCSDS 133.0-B-1 Space Packet">
         <LongDescription>
 Represents a Space Packet as defined in CCSDS 133.0-B-1
@@ -367,7 +460,7 @@ The first 6 bytes of a Space Packet are known as the
         <DefaultSignificance consequenceLevel="normal"/>
         <VerifierSet/>
       </MetaCommand>
-      <MetaCommand name="pus_space_packet" abstract="false">
+      <MetaCommand name="pus_space_packet" abstract="true">
         <BaseMetaCommand metaCommandRef="ccsds_space_packet">
           <ArgumentAssignmentList>
             <ArgumentAssignment argumentName="ccsds_secondary_header" argumentValue="Present"/>
@@ -375,7 +468,8 @@ The first 6 bytes of a Space Packet are known as the
         </BaseMetaCommand>
         <ArgumentList>
           <Argument name="pus_tc_acknowledgement_flags" argumentTypeRef="pus_space_packet__pus_tc_acknowledgement_flags"/>
-          <Argument name="pus_message_type" argumentTypeRef="pus_space_packet__pus_message_type"/>
+          <Argument name="pus_service_type" argumentTypeRef="pus_space_packet__pus_service_type"/>
+          <Argument name="pus_subservice_type" argumentTypeRef="pus_space_packet__pus_subservice_type"/>
           <Argument name="pus_source_id" argumentTypeRef="pus_space_packet__pus_source_id"/>
         </ArgumentList>
         <CommandContainer name="pus_space_packet">
@@ -390,7 +484,12 @@ The first 6 bytes of a Space Packet are known as the
                 <FixedValue>0</FixedValue>
               </LocationInContainerInBits>
             </ArgumentRefEntry>
-            <ArgumentRefEntry argumentRef="pus_message_type">
+            <ArgumentRefEntry argumentRef="pus_service_type">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <ArgumentRefEntry argumentRef="pus_subservice_type">
               <LocationInContainerInBits referenceLocation="previousEntry">
                 <FixedValue>0</FixedValue>
               </LocationInContainerInBits>
