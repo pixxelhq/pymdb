@@ -1,0 +1,411 @@
+<?xml version="1.0" ?>
+<!--
+This file was generated with Yamcs PyMDB.
+See https://github.com/yamcs/pymdb
+-->
+<SpaceSystem xmlns="http://www.omg.org/spec/XTCE/20180204" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.omg.org/spec/XTCE/20180204 https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd" name="RVM">
+  <TelemetryMetaData>
+    <ParameterTypeSet>
+      <AggregateParameterType name="absolute_time">
+        <MemberList>
+          <Member name="basic_time" typeRef="absolute_time__basic_time"/>
+          <Member name="fractional_time" typeRef="absolute_time__fractional_time"/>
+        </MemberList>
+      </AggregateParameterType>
+      <IntegerParameterType name="absolute_time__basic_time" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="32" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="absolute_time__fractional_time" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <AggregateParameterType name="ccsds_packet_id">
+        <MemberList>
+          <Member name="version" typeRef="ccsds_packet_id__version"/>
+          <Member name="type" typeRef="ccsds_packet_id__type">
+            <LongDescription>
+Used to distinguish telemetry (or reporting) packets from
+telecommand (or requesting) packets.
+
+Note that some systems, notably the International Space System,
+use a different convention where 0=core and 1=payload.
+</LongDescription>
+          </Member>
+          <Member name="secondary_header" typeRef="ccsds_packet_id__secondary_header"/>
+          <Member name="apid" typeRef="ccsds_packet_id__apid"/>
+        </MemberList>
+      </AggregateParameterType>
+      <IntegerParameterType name="ccsds_packet_id__version" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="3" encoding="unsigned"/>
+      </IntegerParameterType>
+      <EnumeratedParameterType name="ccsds_packet_id__type">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+        <EnumerationList>
+          <Enumeration value="0" label="TM"/>
+          <Enumeration value="1" label="TC"/>
+        </EnumerationList>
+      </EnumeratedParameterType>
+      <BooleanParameterType name="ccsds_packet_id__secondary_header" zeroStringValue="Not Present" oneStringValue="Present">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+      </BooleanParameterType>
+      <IntegerParameterType name="ccsds_packet_id__apid" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="11" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="ccsds_packet_length" signed="false" sizeInBits="32">
+        <UnitSet>
+          <Unit form="calibrated">Octets</Unit>
+        </UnitSet>
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <AggregateParameterType name="ccsds_packet_sequence">
+        <MemberList>
+          <Member name="group_flags" typeRef="ccsds_packet_sequence__group_flags"/>
+          <Member name="source_sequence_count" typeRef="ccsds_packet_sequence__source_sequence_count"/>
+        </MemberList>
+      </AggregateParameterType>
+      <EnumeratedParameterType name="ccsds_packet_sequence__group_flags">
+        <IntegerDataEncoding sizeInBits="2" encoding="unsigned"/>
+        <EnumerationList>
+          <Enumeration value="0" label="Continuation"/>
+          <Enumeration value="1" label="First"/>
+          <Enumeration value="2" label="Last"/>
+          <Enumeration value="3" label="Standalone"/>
+        </EnumerationList>
+      </EnumeratedParameterType>
+      <IntegerParameterType name="ccsds_packet_sequence__source_sequence_count" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="14" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <AbsoluteTimeParameterType name="onboard_time">
+        <Encoding offset="0" scale="0.001" units="seconds">
+          <IntegerDataEncoding sizeInBits="32" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+        </Encoding>
+        <ReferenceTime>
+          <Epoch>UNIX</Epoch>
+        </ReferenceTime>
+      </AbsoluteTimeParameterType>
+      <IntegerParameterType name="pus_destination_id" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <AggregateParameterType name="pus_message_type">
+        <MemberList>
+          <Member name="pus_service_type" typeRef="pus_message_type__pus_service_type"/>
+          <Member name="pus_subservice_type" typeRef="pus_message_type__pus_subservice_type"/>
+        </MemberList>
+      </AggregateParameterType>
+      <IntegerParameterType name="pus_message_type__pus_service_type" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="pus_message_type__pus_subservice_type" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="pus_message_type_counter" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="pus_spacecraft_time_reference_status" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="4" encoding="unsigned"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="pus_version" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="4" encoding="unsigned"/>
+      </IntegerParameterType>
+      <IntegerParameterType name="time_exponential" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
+      </IntegerParameterType>
+    </ParameterTypeSet>
+    <ParameterSet>
+      <Parameter name="absolute_time" parameterTypeRef="absolute_time">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="ccsds_packet_id" parameterTypeRef="ccsds_packet_id" shortDescription="First word of the primary CCSDS header">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="ccsds_packet_length" parameterTypeRef="ccsds_packet_length">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="ccsds_packet_sequence" parameterTypeRef="ccsds_packet_sequence" shortDescription="Second word of the primary CCSDS header">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="onboard_time" parameterTypeRef="onboard_time">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="pus_destination_id" parameterTypeRef="pus_destination_id">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="pus_message_type" parameterTypeRef="pus_message_type">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="pus_message_type_counter" parameterTypeRef="pus_message_type_counter">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="pus_spacecraft_time_reference_status" parameterTypeRef="pus_spacecraft_time_reference_status">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="pus_version" parameterTypeRef="pus_version">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+      <Parameter name="time_exponential" parameterTypeRef="time_exponential">
+        <ParameterProperties dataSource="telemetered" persistence="true"/>
+      </Parameter>
+    </ParameterSet>
+    <ContainerSet>
+      <SequenceContainer name="ccsds_space_packet" abstract="true" shortDescription="CCSDS 133.0-B-1 Space Packet">
+        <LongDescription>
+Represents a Space Packet as defined in CCSDS 133.0-B-1
+
+The first 6 bytes of a Space Packet are known as the
+&quot;Primary Header&quot;.
+</LongDescription>
+        <BinaryEncoding>
+          <SizeInBits>
+            <FixedValue>48</FixedValue>
+          </SizeInBits>
+        </BinaryEncoding>
+        <EntryList>
+          <ParameterRefEntry parameterRef="ccsds_packet_id">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="ccsds_packet_sequence">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="ccsds_packet_length">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+        </EntryList>
+      </SequenceContainer>
+      <SequenceContainer name="pus_space_packet" abstract="true">
+        <BinaryEncoding>
+          <SizeInBits>
+            <FixedValue>152</FixedValue>
+          </SizeInBits>
+        </BinaryEncoding>
+        <EntryList>
+          <ParameterRefEntry parameterRef="pus_version">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="pus_spacecraft_time_reference_status">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="pus_message_type">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="pus_message_type_counter">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="pus_destination_id">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="absolute_time">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+        </EntryList>
+        <BaseContainer containerRef="ccsds_space_packet"/>
+      </SequenceContainer>
+      <SequenceContainer name="pus_time_packet" abstract="false">
+        <BinaryEncoding>
+          <SizeInBits>
+            <FixedValue>104</FixedValue>
+          </SizeInBits>
+        </BinaryEncoding>
+        <EntryList>
+          <ParameterRefEntry parameterRef="time_exponential">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+          <ParameterRefEntry parameterRef="absolute_time">
+            <LocationInContainerInBits referenceLocation="previousEntry">
+              <FixedValue>0</FixedValue>
+            </LocationInContainerInBits>
+          </ParameterRefEntry>
+        </EntryList>
+        <BaseContainer containerRef="ccsds_space_packet">
+          <RestrictionCriteria>
+            <BooleanExpression>
+              <Condition>
+                <ParameterInstanceRef parameterRef="ccsds_packet_id/apid" useCalibratedValue="true"/>
+                <ComparisonOperator>==</ComparisonOperator>
+                <Value>0</Value>
+              </Condition>
+            </BooleanExpression>
+          </RestrictionCriteria>
+        </BaseContainer>
+      </SequenceContainer>
+    </ContainerSet>
+    <AlgorithmSet>
+      <CustomAlgorithm name="onboard_time_generation">
+        <AncillaryDataSet>
+          <AncillaryData name="Yamcs:AlgorithmMandatoryInput">basic</AncillaryData>
+          <AncillaryData name="Yamcs:AlgorithmMandatoryInput">frac</AncillaryData>
+        </AncillaryDataSet>
+        <AlgorithmText language="JavaScript">
+gentime.rawValue = basic.rawValue * 1000 + frac.rawValue;
+</AlgorithmText>
+        <InputSet>
+          <InputParameterInstanceRef parameterRef="absolute_time/basic_time" instance="0" inputName="basic"/>
+          <InputParameterInstanceRef parameterRef="absolute_time/fractional_time" instance="0" inputName="frac"/>
+        </InputSet>
+        <OutputSet>
+          <OutputParameterRef parameterRef="onboard_time" outputName="gentime"/>
+        </OutputSet>
+        <TriggerSet>
+          <OnParameterUpdateTrigger parameterRef="absolute_time"/>
+        </TriggerSet>
+      </CustomAlgorithm>
+    </AlgorithmSet>
+  </TelemetryMetaData>
+  <CommandMetaData>
+    <ArgumentTypeSet>
+      <BooleanArgumentType name="ccsds_space_packet__ccsds_secondary_header" zeroStringValue="NotPresent" oneStringValue="Present">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+      </BooleanArgumentType>
+      <IntegerArgumentType name="ccsds_space_packet__ccsds_apid" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="11" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerArgumentType>
+      <AggregateArgumentType name="pus_space_packet__pus_tc_acknowledgement_flags">
+        <MemberList>
+          <Member name="pus_acceptance_flag" typeRef="pus_space_packet__pus_tc_acknowledgement_flags__pus_acceptance_flag"/>
+          <Member name="pus_start_exec_flag" typeRef="pus_space_packet__pus_tc_acknowledgement_flags__pus_start_exec_flag"/>
+          <Member name="pus_progress_exec_flag" typeRef="pus_space_packet__pus_tc_acknowledgement_flags__pus_progress_exec_flag"/>
+          <Member name="pus_completion_flag" typeRef="pus_space_packet__pus_tc_acknowledgement_flags__pus_completion_flag"/>
+        </MemberList>
+      </AggregateArgumentType>
+      <BooleanArgumentType name="pus_space_packet__pus_tc_acknowledgement_flags__pus_acceptance_flag" zeroStringValue="NotPresent" oneStringValue="Present">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+      </BooleanArgumentType>
+      <BooleanArgumentType name="pus_space_packet__pus_tc_acknowledgement_flags__pus_start_exec_flag" zeroStringValue="NotPresent" oneStringValue="Present">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+      </BooleanArgumentType>
+      <BooleanArgumentType name="pus_space_packet__pus_tc_acknowledgement_flags__pus_progress_exec_flag" zeroStringValue="NotPresent" oneStringValue="Present">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+      </BooleanArgumentType>
+      <BooleanArgumentType name="pus_space_packet__pus_tc_acknowledgement_flags__pus_completion_flag" zeroStringValue="NotPresent" oneStringValue="Present">
+        <IntegerDataEncoding sizeInBits="1" encoding="unsigned"/>
+      </BooleanArgumentType>
+      <AggregateArgumentType name="pus_space_packet__pus_message_type">
+        <MemberList>
+          <Member name="pus_service_type" typeRef="pus_space_packet__pus_message_type__pus_service_type"/>
+          <Member name="pus_subservice_type" typeRef="pus_space_packet__pus_message_type__pus_subservice_type"/>
+        </MemberList>
+      </AggregateArgumentType>
+      <IntegerArgumentType name="pus_space_packet__pus_message_type__pus_service_type" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
+      </IntegerArgumentType>
+      <IntegerArgumentType name="pus_space_packet__pus_message_type__pus_subservice_type" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="8" encoding="unsigned"/>
+      </IntegerArgumentType>
+      <IntegerArgumentType name="pus_space_packet__pus_source_id" signed="false" sizeInBits="32">
+        <IntegerDataEncoding sizeInBits="16" encoding="unsigned" byteOrder="mostSignificantByteFirst"/>
+      </IntegerArgumentType>
+    </ArgumentTypeSet>
+    <MetaCommandSet>
+      <MetaCommand name="ccsds_space_packet" abstract="true" shortDescription="CCSDS 133.0-B-1 Space Packet">
+        <LongDescription>
+Represents a Space Packet as defined in CCSDS 133.0-B-1
+
+The first 6 bytes of a Space Packet are known as the
+&quot;Primary Header&quot;.
+</LongDescription>
+        <ArgumentList>
+          <Argument name="ccsds_secondary_header" argumentTypeRef="ccsds_space_packet__ccsds_secondary_header"/>
+          <Argument name="ccsds_apid" argumentTypeRef="ccsds_space_packet__ccsds_apid"/>
+        </ArgumentList>
+        <CommandContainer name="ccsds_space_packet">
+          <EntryList>
+            <FixedValueEntry binaryValue="00" sizeInBits="3" name="ccsds_version">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="01" sizeInBits="1" name="ccsds_type">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <ArgumentRefEntry argumentRef="ccsds_secondary_header">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <ArgumentRefEntry argumentRef="ccsds_apid">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <FixedValueEntry binaryValue="03" sizeInBits="2" name="ccsds_group_flags">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="0000" sizeInBits="14" name="ccsds_source_sequence_count" shortDescription="Value set by Yamcs during link post-processing">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <FixedValueEntry binaryValue="0000" sizeInBits="16" name="ccsds_packet_length" shortDescription="Value set by Yamcs during link post-processing">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+          </EntryList>
+        </CommandContainer>
+        <DefaultSignificance consequenceLevel="normal"/>
+        <VerifierSet/>
+      </MetaCommand>
+      <MetaCommand name="pus_space_packet" abstract="false">
+        <BaseMetaCommand metaCommandRef="ccsds_space_packet">
+          <ArgumentAssignmentList>
+            <ArgumentAssignment argumentName="ccsds_secondary_header" argumentValue="Present"/>
+          </ArgumentAssignmentList>
+        </BaseMetaCommand>
+        <ArgumentList>
+          <Argument name="pus_tc_acknowledgement_flags" argumentTypeRef="pus_space_packet__pus_tc_acknowledgement_flags"/>
+          <Argument name="pus_message_type" argumentTypeRef="pus_space_packet__pus_message_type"/>
+          <Argument name="pus_source_id" argumentTypeRef="pus_space_packet__pus_source_id"/>
+        </ArgumentList>
+        <CommandContainer name="pus_space_packet">
+          <EntryList>
+            <FixedValueEntry binaryValue="02" sizeInBits="4" name="pus_tc_version">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </FixedValueEntry>
+            <ArgumentRefEntry argumentRef="pus_tc_acknowledgement_flags">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <ArgumentRefEntry argumentRef="pus_message_type">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+            <ArgumentRefEntry argumentRef="pus_source_id">
+              <LocationInContainerInBits referenceLocation="previousEntry">
+                <FixedValue>0</FixedValue>
+              </LocationInContainerInBits>
+            </ArgumentRefEntry>
+          </EntryList>
+          <BaseContainer containerRef="ccsds_space_packet"/>
+        </CommandContainer>
+        <DefaultSignificance consequenceLevel="normal"/>
+        <VerifierSet/>
+      </MetaCommand>
+    </MetaCommandSet>
+  </CommandMetaData>
+</SpaceSystem>
