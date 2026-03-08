@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from yamcs.pymdb.algorithms import UnnamedAlgorithm
+    from yamcs.pymdb.algorithms import Algorithm
     from yamcs.pymdb.containers import Container
     from yamcs.pymdb.expressions import Expression
     from yamcs.pymdb.parameters import Parameter
@@ -17,18 +17,18 @@ class TerminationAction(Enum):
 
 
 class AlgorithmCheck:
-    def __init__(self, algorithm: UnnamedAlgorithm):
-        self.algorithm = algorithm
+    def __init__(self, algorithm: Algorithm):
+        self.algorithm: Algorithm = algorithm
 
 
 class ContainerCheck:
-    def __init__(self, container: Container):
-        self.container = container
+    def __init__(self, container: Container | str):
+        self.container: Container | str = container
 
 
 class ExpressionCheck:
     def __init__(self, expression: Expression):
-        self.expression = expression
+        self.expression: Expression = expression
 
 
 Check = Union[AlgorithmCheck, ContainerCheck, ExpressionCheck]

@@ -383,8 +383,8 @@ class XTCE12Generator:
             expr_el = ET.SubElement(el, "BooleanExpression")
             self.add_expression_condition(expr_el, command.system, check.expression)
         elif isinstance(check, AlgorithmCheck):
-            self.add_input_only_algorithm(
-                el, command.system, "CustomAlgorithm", check.algorithm
+            self.add_custom_algorithm(
+                el, command.system, check.algorithm
             )
         else:
             raise ExportError(f"Unexpected check {check.__class__}")
