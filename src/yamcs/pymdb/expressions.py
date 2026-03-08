@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from yamcs.pymdb.parameters import AggregateParameter, Member, Parameter
+    from yamcs.pymdb.commands import AggregateArgument
 
 
 class ParameterMember:
@@ -20,6 +21,18 @@ class ParameterMember:
         else:
             self.path: list[Member] = [path]
 
+class ArgumentMember:
+    def __init__(
+        self,
+        argument: AggregateArgument,
+        path: Member | list[Member],
+    ):
+        self.argument = argument
+
+        if isinstance(path, Sequence):
+            self.path: list[Member] = path
+        else:
+            self.path: list[Member] = [path]
 
 class Expression:
     pass
