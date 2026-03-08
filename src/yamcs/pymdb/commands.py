@@ -554,7 +554,7 @@ class Command:
             constraints = list(constraint)
         elif isinstance(constraint, TransmissionConstraint):
             constraints.append(constraint)
-        self.constraints = constraints
+        self.constraints: list[TransmissionConstraint] = constraints
         """
         Constraints to check before sending the command.
 
@@ -624,7 +624,11 @@ class Command:
 
         return path
 
-    def get_argument(self, name: str, visit_parents=True):
+    def get_argument(
+        self,
+        name: str,
+        visit_parents: bool = True,
+    ) -> Argument | None:
         """
         Return the argument for the given name
 

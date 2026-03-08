@@ -81,6 +81,7 @@ from yamcs.pymdb.expressions import (
     NeExpression,
     OrExpression,
     ParameterMember,
+    ArgumentMember
 )
 from yamcs.pymdb.headers import (
     Header,
@@ -2337,7 +2338,7 @@ class XTCE12Generator:
             return target
 
     def make_parameter_ref(
-        self, target: Parameter | ParameterMember | str, start: System
+        self, target: Parameter | ParameterMember | ArgumentMember | str, start: System
     ):
         if isinstance(target, Parameter):
             return self.make_ref(target.qualified_name, start)
@@ -2346,6 +2347,11 @@ class XTCE12Generator:
             for member in target.path:
                 parameter_ref += "/" + member.name
             return parameter_ref
+        elif isinstance(target, ArgumentMember):
+            argument_ref = self.make_ref(target.argument.name, start)
+            for member in target.path:
+                argument_ref += "/" + member.name
+            return argument_ref
         elif isinstance(target, str):
             return self.make_ref(target, start)
         else:

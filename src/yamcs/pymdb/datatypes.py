@@ -12,7 +12,8 @@ from yamcs.pymdb.encodings import Encoding, TimeEncoding
 if TYPE_CHECKING:
     from yamcs.pymdb.calibrators import Calibrator
     from yamcs.pymdb.commands import Argument
-    from yamcs.pymdb.parameters import AbsoluteTimeParameter, Parameter
+    from yamcs.pymdb.expressions import ParameterMember
+    from yamcs.pymdb.parameters import Parameter, AbsoluteTimeParameter
 
 
 class Epoch(Enum):
@@ -27,7 +28,7 @@ Choices = Union[Sequence[Union[tuple[int, str], tuple[int, str, str]]], Type[Enu
 
 @dataclass
 class ParameterValue:
-    parameter: Parameter | str
+    parameter: Parameter | ParameterMember | str
     """
     Reference the value of this parameter.
 
@@ -436,7 +437,7 @@ class ArrayMember(Member, ArrayDataType):
         self,
         name: str,
         data_type: DataType,
-        length: int,
+        length: int | ParameterValue | ArgumentValue,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,
