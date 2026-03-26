@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from enum import Enum
 from typing import TYPE_CHECKING
 
 from yamcs.pymdb.datatypes import (
@@ -13,7 +14,61 @@ from yamcs.pymdb.datatypes import (
 if TYPE_CHECKING:
     from yamcs.pymdb.expressions import Expression
     from yamcs.pymdb.parameters import Parameter
+    from yamcs.pymdb.expressions import ParameterMember
     from yamcs.pymdb.systems import System
+
+
+class RepeatEntry:
+    def __init__(
+        self,
+        count: int | ParameterValue | ArgumentValue,
+        offset: int | ParameterValue | ArgumentValue | None = None,
+    ) -> None:
+        self.count: int | ParameterValue | ArgumentValue = count
+        """Number of times the sequence entry repeats."""
+
+        self.offset: int | ParameterValue | ArgumentValue | None = offset
+        """Optional offset between repeated instances of the entry."""
+
+
+class TimeAssociationUnit(Enum):
+    SI_NANOSECOND = "si_nanosecond"
+    SI_MICROSECOND = "si_microsecond"
+    SI_MILLSECOND = "si_millsecond"
+    SI_SECOND = "si_second"
+    MINUTE = "minute"
+    DAY = "day"
+    JULIAN_YEAR = "julianYear"
+
+
+class TimeAssociation:
+    def __init__(
+        self,
+        parameter: Parameter | ParameterMember | str,
+        *,
+        instance: int = 0,
+        use_calibrated_value: bool = True,
+        interpolate_time: bool = True,
+        offset: float | None = None,
+        unit: TimeAssociationUnit = TimeAssociationUnit.SI_SECOND,
+    ) -> None:
+        self.parameter: Parameter | ParameterMember | str = parameter
+        """Absolute time parameter used to time-tag this entry."""
+
+        self.instance: int = instance
+        """Requested instance of :attr:`parameter`."""
+
+        self.use_calibrated_value: bool = use_calibrated_value
+        """Whether to use the calibrated value of :attr:`parameter`."""
+
+        self.interpolate_time: bool = interpolate_time
+        """Whether the reference time should be projected to the current time."""
+
+        self.offset: float | None = offset
+        """Optional relative offset from the associated time."""
+
+        self.unit: TimeAssociationUnit = unit
+        """Units of :attr:`offset`."""
 
 
 class ParameterEntry:
@@ -23,8 +78,10 @@ class ParameterEntry:
         bitpos: int | None = None,
         *,
         offset: int = 0,
+        repeat: RepeatEntry | None = None,
         short_description: str | None = None,
         condition: Expression | None = None,
+        time_association: TimeAssociation | None = None,
     ) -> None:
         self.parameter: Parameter = parameter
 
@@ -48,11 +105,80 @@ class ParameterEntry:
         absolute bit position.
         """
 
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
         self.condition: Expression | None = condition
         """If set, this entry is only present when the condition is met"""
 
+        self.time_association: TimeAssociation | None = time_association
+        """Optional timing metadata associated with this entry."""
+
     def __str__(self) -> str:
         return self.parameter.__str__()
+
+
+class IndirectParameterEntry:
+    def __init__(
+        self,
+        parameter_instance: Parameter | str,
+        bitpos: int | None = None,
+        *,
+        instance: int = 0,
+        use_calibrated_value: bool = True,
+        alias_namespace: str | None = None,
+        offset: int = 0,
+        repeat: RepeatEntry | None = None,
+        short_description: str | None = None,
+        condition: Expression | None = None,
+        time_association: TimeAssociation | None = None,
+    ) -> None:
+        self.parameter_instance: Parameter | str = parameter_instance
+        """
+        Parameter whose value contains the name or alias of the actual
+        parameter to extract.
+        """
+
+        self.instance: int = instance
+        """Requested instance of :attr:`parameter_instance`."""
+
+        self.use_calibrated_value: bool = use_calibrated_value
+        """Whether to use the calibrated value of :attr:`parameter_instance`."""
+
+        self.alias_namespace: str | None = alias_namespace
+        """Alias namespace for the indirect parameter name, when applicable."""
+
+        self.short_description: str | None = short_description
+        """Oneline description"""
+
+        self.bitpos: int | None = bitpos
+        """
+        Absolute position within the container, in bits.
+
+        If unspecified, this entry is positioned relative to the preceding
+        entry.
+        """
+
+        self.offset: int = offset
+        """
+        Distance in bits to the preceding entry.
+
+        While not expected, if both :attr:`bitpos` and :attr:`offset` are
+        specified, the two are added together for establishing the real
+        absolute bit position.
+        """
+
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
+        self.condition: Expression | None = condition
+        """If set, this entry is only present when the condition is met"""
+
+        self.time_association: TimeAssociation | None = time_association
+        """Optional timing metadata associated with this entry."""
+
+    def __str__(self) -> str:
+        return str(self.parameter_instance)
 
 
 class ContainerEntry:
@@ -62,7 +188,9 @@ class ContainerEntry:
         short_description: str | None = None,
         bitpos: int | None = None,
         offset: int = 0,
+        repeat: RepeatEntry | None = None,
         condition: Expression | None = None,
+        time_association: TimeAssociation | None = None,
     ) -> None:
         self.container: Container = container
 
@@ -86,8 +214,14 @@ class ContainerEntry:
         absolute bit position.
         """
 
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
         self.condition: Expression | None = condition
         """If set, this entry is only present when the condition is met"""
+
+        self.time_association: TimeAssociation | None = time_association
+        """Optional timing metadata inherited by entries in this container."""
 
     def __str__(self) -> str:
         return self.container.__str__()
@@ -103,7 +237,9 @@ class Container:
         self,
         system: System,
         name: str,
-        entries: Sequence[ParameterEntry | ContainerEntry] | None = None,
+        entries: Sequence[
+            ParameterEntry | IndirectParameterEntry | ContainerEntry
+        ] | None = None,
         *,
         base: Container | str | None = None,
         abstract: bool = False,
@@ -167,7 +303,9 @@ class Container:
         stored to Yamcs.
         """
 
-        self.entries: list[ParameterEntry | ContainerEntry] = list(entries or [])
+        self.entries: list[ParameterEntry | IndirectParameterEntry | ContainerEntry] = (
+            list(entries or [])
+        )
         self.base: Container | str | None = base
         self.abstract: bool = abstract
         self.condition: Expression | None = condition
@@ -209,6 +347,10 @@ class Container:
 
         prev_pos = 0
         for entry in self.entries:
+            if entry.repeat:
+                raise NotImplementedError(
+                    "Cannot automatically determine size of repeated entries"
+                )
             if isinstance(entry, ParameterEntry):
                 parameter = entry.parameter
                 bits = None

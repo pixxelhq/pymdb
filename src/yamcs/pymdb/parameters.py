@@ -169,7 +169,7 @@ class AbsoluteTimeParameter(Parameter, AbsoluteTimeDataType):
         self,
         system: System,
         name: str,
-        reference: Epoch | datetime | AbsoluteTimeParameter,
+        reference: Epoch | datetime | AbsoluteTimeParameter | None = None,
         aliases: Mapping[str, str] | None = None,
         data_source: DataSource = DataSource.TELEMETERED,
         initial_value: Any = None,

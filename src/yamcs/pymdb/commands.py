@@ -4,7 +4,11 @@ from collections.abc import Mapping, Sequence
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Literal, Union
 
-from yamcs.pymdb.containers import ParameterEntry
+from yamcs.pymdb.containers import (
+    IndirectParameterEntry,
+    ParameterEntry,
+    RepeatEntry,
+)
 from yamcs.pymdb.datatypes import (
     AbsoluteTimeDataType,
     AggregateDataType,
@@ -112,7 +116,7 @@ class AbsoluteTimeArgument(Argument, AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch,
+        reference: Epoch | None = None,
         *,
         default: Any = None,
         short_description: str | None = None,
@@ -399,6 +403,7 @@ class ArgumentEntry:
         short_description: str | None = None,
         bitpos: int | None = None,
         offset: int = 0,
+        repeat: RepeatEntry | None = None,
         condition: Expression | None = None,
     ) -> None:
         self.argument: Argument = argument
@@ -423,6 +428,9 @@ class ArgumentEntry:
         absolute bit position.
         """
 
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
         self.condition: Expression | None = condition
         """If set, this entry is only present when the condition is met"""
 
@@ -436,6 +444,7 @@ class FixedValueEntry:
         short_description: str | None = None,
         bitpos: int | None = None,
         offset: int = 0,
+        repeat: RepeatEntry | None = None,
         condition: Expression | None = None,
         bits: int | None = None,
     ) -> None:
@@ -477,6 +486,9 @@ class FixedValueEntry:
         absolute bit position.
         """
 
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
         self.condition: Expression | None = condition
         """If set, encode this entry only when the condition is met"""
 
@@ -493,7 +505,12 @@ class FixedValueEntry:
         """
 
 
-CommandEntry = Union[ArgumentEntry, ParameterEntry, FixedValueEntry]
+CommandEntry = Union[
+    ArgumentEntry,
+    IndirectParameterEntry,
+    ParameterEntry,
+    FixedValueEntry,
+]
 
 
 class TransmissionConstraint:
