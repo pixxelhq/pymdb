@@ -14,12 +14,19 @@ class ParameterMember:
         parameter: AggregateParameter,
         path: Member | list[Member],
     ):
-        self.parameter = parameter
+        self.parameter: AggregateParameter = parameter
 
         if isinstance(path, Sequence):
-            self.path: list[Member] = path
+            self.path: list[Member] = list(path)
         else:
             self.path: list[Member] = [path]
+
+    def __str__(self):
+        parameter_ref = f"{self.parameter.name}"
+        for member in self.path:
+            parameter_ref += f"/{member.name}"
+
+        return parameter_ref
 
 class ArgumentMember:
     def __init__(
@@ -27,12 +34,19 @@ class ArgumentMember:
         argument: AggregateArgument,
         path: Member | list[Member],
     ):
-        self.argument = argument
+        self.argument: AggregateArgument = argument
 
         if isinstance(path, Sequence):
-            self.path: list[Member] = path
+            self.path: list[Member] = list(path)
         else:
             self.path: list[Member] = [path]
+
+    def __str__(self):
+        argument_ref = f"{self.argument.name}"
+        for member in self.path:
+            argument_ref += f"/{member.name}"
+
+        return argument_ref
 
 class Expression:
     pass

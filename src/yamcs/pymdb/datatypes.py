@@ -12,7 +12,8 @@ from yamcs.pymdb.encodings import Encoding, TimeEncoding
 if TYPE_CHECKING:
     from yamcs.pymdb.calibrators import Calibrator
     from yamcs.pymdb.commands import Argument
-    from yamcs.pymdb.parameters import AbsoluteTimeParameter, Parameter
+    from yamcs.pymdb.expressions import ParameterMember
+    from yamcs.pymdb.parameters import Parameter, AbsoluteTimeParameter
 
 
 class Epoch(Enum):
@@ -27,7 +28,7 @@ Choices = Union[Sequence[Union[tuple[int, str], tuple[int, str, str]]], Type[Enu
 
 @dataclass
 class ParameterValue:
-    parameter: Parameter | str
+    parameter: Parameter | ParameterMember | str
     """
     Reference the value of this parameter.
 
@@ -93,7 +94,7 @@ class DataType:
 class AbsoluteTimeDataType(DataType):
     def __init__(
         self,
-        reference: Epoch | datetime | AbsoluteTimeParameter | None = None,
+        reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -108,7 +109,7 @@ class AbsoluteTimeDataType(DataType):
             units=units,
             encoding=encoding,
         )
-        self.reference: Epoch | datetime | AbsoluteTimeParameter | None = reference
+        self.reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = reference
 
 
 class AggregateDataType(DataType):
@@ -381,7 +382,7 @@ class AbsoluteTimeMember(Member, AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch | datetime | AbsoluteTimeParameter | None = None,
+        reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = None,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,
@@ -436,7 +437,7 @@ class ArrayMember(Member, ArrayDataType):
         self,
         name: str,
         data_type: DataType,
-        length: int,
+        length: int | ParameterValue | ArgumentValue,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,

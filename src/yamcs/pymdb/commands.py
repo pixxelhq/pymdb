@@ -116,9 +116,9 @@ class AbsoluteTimeArgument(Argument, AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch | None = None,
         *,
         default: Any = None,
+        reference: Epoch | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -571,7 +571,7 @@ class Command:
             constraints = list(constraint)
         elif isinstance(constraint, TransmissionConstraint):
             constraints.append(constraint)
-        self.constraints = constraints
+        self.constraints: list[TransmissionConstraint] = constraints
         """
         Constraints to check before sending the command.
 
@@ -641,7 +641,11 @@ class Command:
 
         return path
 
-    def get_argument(self, name: str, visit_parents=True):
+    def get_argument(
+        self,
+        name: str,
+        visit_parents: bool = True,
+    ) -> Argument | None:
         """
         Return the argument for the given name
 

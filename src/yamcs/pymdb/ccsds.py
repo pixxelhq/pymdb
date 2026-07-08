@@ -59,7 +59,7 @@ def add_ccsds_header(system: System) -> CcsdsHeader:
     )
     tm_secondary_header_member = BooleanMember(
         name="secondary_header",
-        zero_string_value="Not Present",
+        zero_string_value="NotPresent",
         one_string_value="Present",
         encoding=uint1_t,
     )

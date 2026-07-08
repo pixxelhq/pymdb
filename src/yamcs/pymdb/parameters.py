@@ -27,6 +27,7 @@ from yamcs.pymdb.encodings import Encoding, TimeEncoding
 if TYPE_CHECKING:
     from yamcs.pymdb.alarms import EnumerationContextAlarm, ThresholdContextAlarm
     from yamcs.pymdb.calibrators import Calibrator
+    from yamcs.pymdb.expressions import ParameterMember
     from yamcs.pymdb.systems import System
 
 
@@ -169,7 +170,7 @@ class AbsoluteTimeParameter(Parameter, AbsoluteTimeDataType):
         self,
         system: System,
         name: str,
-        reference: Epoch | datetime | AbsoluteTimeParameter | None = None,
+        reference: Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None = None,
         aliases: Mapping[str, str] | None = None,
         data_source: DataSource = DataSource.TELEMETERED,
         initial_value: Any = None,

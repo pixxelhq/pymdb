@@ -121,7 +121,7 @@ class ParameterEntry:
 class IndirectParameterEntry:
     def __init__(
         self,
-        parameter_instance: Parameter | str,
+        parameter_instance: Parameter | ParameterMember | str,
         bitpos: int | None = None,
         *,
         instance: int = 0,
@@ -133,7 +133,7 @@ class IndirectParameterEntry:
         condition: Expression | None = None,
         time_association: TimeAssociation | None = None,
     ) -> None:
-        self.parameter_instance: Parameter | str = parameter_instance
+        self.parameter_instance: Parameter | ParameterMember | str = parameter_instance
         """
         Parameter whose value contains the name or alias of the actual
         parameter to extract.
