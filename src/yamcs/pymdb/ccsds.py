@@ -1,5 +1,6 @@
 from textwrap import dedent
 from typing import NamedTuple
+import json
 
 from yamcs.pymdb.commands import (
     ArgumentEntry,
@@ -7,6 +8,7 @@ from yamcs.pymdb.commands import (
     Command,
     FixedValueEntry,
     IntegerArgument,
+    EnumeratedArgument
 )
 from yamcs.pymdb.containers import Container, ParameterEntry
 from yamcs.pymdb.datatypes import BooleanMember, EnumeratedMember, IntegerMember
@@ -31,10 +33,14 @@ class CcsdsHeader(NamedTuple):
     tm_apid: ParameterMember
     tc_command: Command
     tc_secondary_header: BooleanArgument
-    tc_apid: IntegerArgument
+    tc_apid: EnumeratedArgument
 
 
 def add_ccsds_header(system: System) -> CcsdsHeader:
+    apids: dict[str, str] = json.loads(
+        system.extra.get("apids")
+    )
+
     tm_version_member = IntegerMember(
         name="version",
         signed=False,
@@ -63,10 +69,12 @@ def add_ccsds_header(system: System) -> CcsdsHeader:
         one_string_value="Present",
         encoding=uint1_t,
     )
-    tm_apid_member = IntegerMember(
+    tm_apid_member = EnumeratedMember(
         name="apid",
-        signed=False,
         encoding=uint11_t,
+        choices=[
+            (int(v), k) for k, v in apids.items()
+        ]
     )
     tm_packet_id = AggregateParameter(
         system=system,
@@ -139,10 +147,12 @@ def add_ccsds_header(system: System) -> CcsdsHeader:
         encoding=uint1_t,
     )
 
-    tc_apid = IntegerArgument(
+    tc_apid = EnumeratedArgument(
         name="ccsds_apid",
-        signed=False,
         encoding=uint11_t,
+        choices=[
+            (int(v), k) for k, v in apids.items()
+        ]
     )
 
     tc_command = Command(

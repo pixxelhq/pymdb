@@ -1,5 +1,6 @@
 from textwrap import dedent
 from typing import Mapping, NamedTuple, Sequence
+import json
 
 from yamcs.pymdb.commands import (
     ArgumentEntry,
@@ -23,7 +24,7 @@ from yamcs.pymdb.encodings import (
     IntegerEncodingScheme,
     BinaryTimeEncoding
 )
-from yamcs.pymdb.expressions import ParameterMember, EqExpression, ArgumentMember
+from yamcs.pymdb.expressions import ParameterMember, EqExpression, ArgumentMember, NeExpression
 from yamcs.pymdb.parameters import AggregateParameter, IntegerParameter, AbsoluteTimeParameter
 from yamcs.pymdb.systems import System
 from yamcs.pymdb.encodings import IntegerTimeEncoding
@@ -35,6 +36,8 @@ from .ccsds import CcsdsHeader, add_ccsds_header
 # User settings
 BASIC_TIME_SIZE = 32
 FRACTIONAL_TIME_SIZE = 16
+TIME_APID = "Time"
+
 
 class CucTime(NamedTuple):
     epoch: Epoch
@@ -60,6 +63,10 @@ class PusHeader(NamedTuple):
 
 def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
     ccsds_header: CcsdsHeader = add_ccsds_header(system)
+
+    apids: dict[str, str] = json.loads(
+        system.extra.get("apids")
+    )
     
     pus_tm_version = IntegerParameter(
         system=system,
@@ -106,6 +113,14 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         encoding=uint16_t
     )
     
+    rate_exponent = IntegerParameter(
+        system=system,
+        name="rate_exponent",
+        signed=False,
+        encoding=IntegerEncoding(
+            bits=8
+        )
+    )
     basic_time_member = IntegerMember(
         name="basic_time",
         signed=False,
@@ -145,7 +160,28 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
             )
         )
     )
-    
+
+    pus_tm_time_container = Container(
+        system=system,
+        name="pus_time_packet",
+        abstract=False,
+        base=ccsds_header.tm_container,
+        bits=ccsds_header.tm_container.bits + (FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE), # type: ignore
+        entries=[
+            ParameterEntry(rate_exponent),
+            ParameterEntry(absolute_time),
+            ParameterEntry(
+                onboard_cuctime,
+                offset=-(FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE)
+            )
+        ],
+        condition=EqExpression(
+            ref=ccsds_header.tm_apid,
+            value=next(
+                (k for k, v in apids.items() if int(v) == 0), TIME_APID
+            )
+        )
+    )
     pus_tm_nontime_container = Container(
         system=system,
         name="pus_space_packet",
@@ -164,24 +200,11 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
                 offset=-(FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE)
             )
         ],
-    )
-
-    pus_tm_time_container = Container(
-        system=system,
-        name="pus_time_packet",
-        abstract=False,
-        base=ccsds_header.tm_container,
-        bits=ccsds_header.tm_container.bits + (FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE), # type: ignore
-        entries=[
-            ParameterEntry(absolute_time),
-            ParameterEntry(
-                onboard_cuctime,
-                offset=-(FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE)
-            )
-        ],
-        condition=EqExpression(
+        condition=NeExpression(
             ref=ccsds_header.tm_apid,
-            value=0
+            value=next(
+                (k for k, v in apids.items() if int(v) == 0), TIME_APID
+            )
         )
     )
 
