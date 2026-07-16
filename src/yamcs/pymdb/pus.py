@@ -248,10 +248,10 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
     pus_tc_acknowlegement_flags = AggregateArgument(
         name="pus_tc_acknowledgement_flags",
         members=[
-            acceptance_flag,
-            start_exec_flag,
+            completion_flag,
             progress_exec_flag,
-            completion_flag
+            start_exec_flag,
+            acceptance_flag
         ]
     )
     pus_tc_service_type = IntegerArgument(
