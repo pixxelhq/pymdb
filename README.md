@@ -37,6 +37,24 @@ param2 = Y.EnumeratedParameter(
 print(spacecraft.dumps())
 ```
 
+## Using a local checkout as a dependency
+
+Other projects (e.g. [Hermes](../hermes)) may depend on this package via a
+local path instead of the PyPI release, useful for developing against
+unreleased changes. Reference it in the consuming project's
+`requirements.txt` as:
+
+```text
+yamcs-pymdb @ file:///absolute/path/to/pymdb
+```
+
+To pick up edits without reinstalling after every change, install it in
+editable mode inside the consuming project's environment instead:
+
+```bash
+pip install -e /absolute/path/to/pymdb
+```
+
 ## License
 
 LGPL-3.0. See [LICENSE](https://github.com/yamcs/pymdb/blob/master/LICENSE)
