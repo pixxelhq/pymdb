@@ -86,7 +86,6 @@ class EnumerationAlarm(Alarm):
 
 
 class EnumerationContextAlarm:
-
     def __init__(self, context: Expression, alarm: EnumerationAlarm):
         self.context = context
         self.alarm = alarm
@@ -154,7 +153,6 @@ class ThresholdAlarm(Alarm):
 
 
 class ThresholdContextAlarm:
-
     def __init__(self, context: Expression, alarm: ThresholdAlarm):
         self.context = context
         self.alarm = alarm

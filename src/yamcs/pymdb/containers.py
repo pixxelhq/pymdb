@@ -10,11 +10,11 @@ from yamcs.pymdb.datatypes import (
     ArrayDataType,
     ParameterValue,
 )
+from yamcs.pymdb.exceptions import DuplicateNameError, SizeCalculationError
 
 if TYPE_CHECKING:
-    from yamcs.pymdb.expressions import Expression
+    from yamcs.pymdb.expressions import Expression, ParameterMember
     from yamcs.pymdb.parameters import Parameter
-    from yamcs.pymdb.expressions import ParameterMember
     from yamcs.pymdb.systems import System
 
 
@@ -237,9 +237,8 @@ class Container:
         self,
         system: System,
         name: str,
-        entries: Sequence[
-            ParameterEntry | IndirectParameterEntry | ContainerEntry
-        ] | None = None,
+        entries: Sequence[ParameterEntry | IndirectParameterEntry | ContainerEntry]
+        | None = None,
         *,
         base: Container | str | None = None,
         abstract: bool = False,
@@ -312,11 +311,7 @@ class Container:
         """Restriction criteria for this container."""
 
         if name in system._containers_by_name:
-            raise Exception(
-                "System {} already contains a container {}".format(
-                    system.qualified_name, name
-                )
-            )
+            raise DuplicateNameError(f"Container '{name}' already exists in system")
 
         system._containers_by_name[name] = self
 
@@ -347,10 +342,6 @@ class Container:
 
         prev_pos = 0
         for entry in self.entries:
-            if entry.repeat:
-                raise NotImplementedError(
-                    "Cannot automatically determine size of repeated entries"
-                )
             if isinstance(entry, ParameterEntry):
                 parameter = entry.parameter
                 bits = None
@@ -359,9 +350,13 @@ class Container:
                     encoding = parameter.data_type.encoding
                     if encoding and encoding.bits:
                         if isinstance(length, ParameterValue):
-                            raise Exception("Cannot determine parameter value")
+                            raise SizeCalculationError(
+                                "Cannot determine fixed size of parameter value"
+                            )
                         elif isinstance(length, ArgumentValue):
-                            raise Exception("Cannot determine argument value")
+                            raise SizeCalculationError(
+                                "Cannot determine fixed size of argument value"
+                            )
                         bits = length * encoding.bits
                 elif isinstance(parameter, AggregateDataType):
                     raise NotImplementedError()
@@ -369,7 +364,18 @@ class Container:
                     bits = parameter.encoding.bits
 
                 if not bits:
-                    raise Exception(f"Cannot determine size of {entry.parameter}")
+                    raise SizeCalculationError(
+                        f"Cannot determine fixed size of {entry.parameter}"
+                    )
+
+                if entry.repeat is not None:
+                    count = entry.repeat.count
+                    repeat_offset = entry.repeat.offset or 0
+                    if not isinstance(count, int) or not isinstance(repeat_offset, int):
+                        raise SizeCalculationError(
+                            "Cannot determine fixed size of dynamically repeated entry"
+                        )
+                    bits = bits * count + repeat_offset * (count - 1)
 
                 pos = entry.bitpos
                 if pos is None:

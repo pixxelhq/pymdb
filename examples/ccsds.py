@@ -1,7 +1,10 @@
 import yamcs.pymdb as Y
 from yamcs.pymdb import ccsds
 
-spacecraft = Y.System("Spacecraft")
+spacecraft = Y.System(
+    "Spacecraft",
+    extra={"apids": '{"Project": "101"}'},
+)
 ccsds_header = ccsds.add_ccsds_header(spacecraft)
 
 command_id = Y.IntegerArgument(
@@ -17,7 +20,7 @@ project_command = Y.Command(
     base=ccsds_header.tc_command,
     assignments={
         ccsds_header.tc_secondary_header.name: "NotPresent",
-        ccsds_header.tc_apid.name: 101,
+        ccsds_header.tc_apid.name: "Project",
     },
     arguments=[
         command_id,

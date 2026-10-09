@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import posixpath
 import xml.etree.ElementTree as ET
@@ -7,7 +8,7 @@ from binascii import hexlify
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Sequence, cast
+from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
 from xml.dom import minidom
 
 from yamcs.pymdb.alarms import AlarmLevel, ThresholdAlarm, ThresholdContextAlarm
@@ -76,7 +77,7 @@ from yamcs.pymdb.encodings import (
     IntegerEncodingScheme,
     IntegerTimeEncoding,
     StringEncoding,
-    BinaryTimeEncoding
+    BinaryTimeEncoding,
 )
 from yamcs.pymdb.exceptions import ExportError
 from yamcs.pymdb.expressions import (
@@ -90,12 +91,9 @@ from yamcs.pymdb.expressions import (
     NeExpression,
     OrExpression,
     ParameterMember,
-    ArgumentMember
+    ArgumentMember,
 )
-from yamcs.pymdb.headers import (
-    Header,
-    History
-)
+from yamcs.pymdb.headers import Header, History
 from yamcs.pymdb.parameters import (
     AbsoluteTimeParameter,
     AggregateParameter,
@@ -136,12 +134,26 @@ ET.register_namespace("yamcs", YAMCS_XTCE_NAMESPACE)
 def _to_xml_value(value: Any):
     if isinstance(value, (bytes, bytearray)):
         return hexlify(value).decode("ascii")
+    elif isinstance(value, str):
+        return value
     elif isinstance(value, bool):
         return "true" if value else "false"
     elif isinstance(value, Enum):
         return value.name
+    elif isinstance(value, Mapping):
+        return json.dumps(value)
+    elif isinstance(value, Sequence):
+        return json.dumps(value)
     else:
         return str(value)
+
+
+def _datetime_to_xsd(dt: datetime) -> str:
+    if dt.tzinfo:
+        utctime = dt.astimezone(tz=timezone.utc)
+        return utctime.isoformat().replace("+00:00", "Z")
+    else:
+        return dt.isoformat() + "Z"
 
 
 def _to_isoduration(seconds: float):
@@ -157,11 +169,12 @@ def _to_isoduration(seconds: float):
     return "P" + (str(d) + "D" if d else "") + sep + (t if seconds else "T0S")
 
 
-class XTCE12Generator:
+class XTCEGenerator:
     def __init__(
         self,
         system: System,
         *,
+        version: Literal["1.2", "1.3"],
         indent="",
         add_schema_location: bool = True,
         top_comment: bool | str = True,
@@ -171,6 +184,7 @@ class XTCE12Generator:
         skip_parameters: bool = False,
         skip_subsystems: bool = False,
     ):
+        self.version = version
         self.indent = indent
         self.add_schema_location = add_schema_location
         self.top_comment = top_comment
@@ -180,6 +194,12 @@ class XTCE12Generator:
         self.skip_containers = skip_containers
         self.skip_parameters = skip_parameters
         self.skip_subsystems = skip_subsystems
+
+    def is_1_2(self):
+        return self.version == "1.2"
+
+    def is_1_3(self):
+        return self.version == "1.3"
 
     def to_xtce(self) -> str:
         el = self.generate_space_system(
@@ -193,7 +213,7 @@ class XTCE12Generator:
         if top_comment is True:
             top_comment = (
                 "\nThis file was generated with Yamcs PyMDB.\n"
-                "See https://github.com/yamcs/pymdb\n"
+                "See https://docs.yamcs.org/pymdb/\n"
             )
         if top_comment:
             comment_el = xtce_dom.createComment(top_comment)
@@ -397,9 +417,7 @@ class XTCE12Generator:
             expr_el = ET.SubElement(el, "BooleanExpression")
             self.add_expression_condition(expr_el, command.system, check.expression)
         elif isinstance(check, AlgorithmCheck):
-            self.add_custom_algorithm(
-                el, command.system, check.algorithm
-            )
+            self.add_custom_algorithm(el, command.system, check.algorithm)
         else:
             raise ExportError(f"Unexpected check {check.__class__}")
 
@@ -482,8 +500,14 @@ class XTCE12Generator:
                 self.add_indirect_parameter_ref_entry(el, command, entry)
             elif isinstance(entry, ParameterEntry):
                 self.add_parameter_ref_entry(el, command, entry)
+            elif isinstance(entry, IndirectParameterEntry):
+                raise ExportError(
+                    f"Entry {entry} of command {command} is indirect. "
+                    "Indirect entries are only supported in telemetry "
+                    "containers"
+                )
             else:
-                raise Exception(f"Unexpected command entry {entry.__class__}")
+                raise ExportError(f"Unexpected command entry {entry.__class__}")
 
     def add_fixed_value_entry(
         self,
@@ -604,6 +628,7 @@ class XTCE12Generator:
                     el,
                     system,
                     name=parameter.name,
+                    initial_value=parameter.initial_value,
                     data_type=parameter,
                 )
             elif isinstance(parameter, AggregateParameter):
@@ -611,6 +636,7 @@ class XTCE12Generator:
                     el,
                     system,
                     name=parameter.name,
+                    initial_value=parameter.initial_value,
                     data_type=parameter,
                 )
             elif isinstance(parameter, ArrayParameter):
@@ -618,6 +644,7 @@ class XTCE12Generator:
                     el,
                     system,
                     name=parameter.name,
+                    initial_value=parameter.initial_value,
                     data_type=parameter,
                 )
             elif isinstance(parameter, BinaryParameter):
@@ -684,7 +711,9 @@ class XTCE12Generator:
         data_type: DataType,
     ):
         if isinstance(data_type, AbsoluteTimeDataType):
-            self.add_absolute_time_argument_type(parent, system, name, data_type)
+            self.add_absolute_time_argument_type(
+                parent, system, name, default, data_type
+            )
         elif isinstance(data_type, BinaryDataType):
             self.add_binary_argument_type(parent, system, name, default, data_type)
         elif isinstance(data_type, BooleanDataType):
@@ -698,9 +727,9 @@ class XTCE12Generator:
         elif isinstance(data_type, StringDataType):
             self.add_string_argument_type(parent, system, name, default, data_type)
         elif isinstance(data_type, ArrayDataType):
-            self.add_array_argument_type(parent, system, name, data_type)
+            self.add_array_argument_type(parent, system, name, default, data_type)
         elif isinstance(data_type, AggregateDataType):
-            self.add_aggregate_argument_type(parent, system, name, data_type)
+            self.add_aggregate_argument_type(parent, system, name, default, data_type)
         else:
             raise ExportError(f"Unexpected data type {data_type.__class__}")
 
@@ -709,10 +738,14 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
+        default: datetime | None,
         data_type: AbsoluteTimeDataType,
     ):
         el = ET.SubElement(parent, "AbsoluteTimeArgumentType")
         el.attrib["name"] = name
+
+        if default:
+            el.attrib["initialValue"] = _datetime_to_xsd(default)
 
         if data_type.encoding:
             self.add_data_encoding(el, system, data_type.encoding)
@@ -726,7 +759,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        default: Any,
+        default: bytes | bytearray | str | None,
         data_type: BinaryDataType,
     ):
         el = ET.SubElement(parent, "BinaryArgumentType")
@@ -757,7 +790,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        default: Any,
+        default: bool | str | None,
         data_type: BooleanDataType,
     ):
         el = ET.SubElement(parent, "BooleanArgumentType")
@@ -790,13 +823,15 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        default: Any,
+        default: str | Enum | None,
         data_type: EnumeratedDataType,
     ):
         el = ET.SubElement(parent, "EnumeratedArgumentType")
         el.attrib["name"] = name
 
-        if default:
+        if isinstance(default, Enum):
+            el.attrib["initialValue"] = default.name
+        elif default:
             el.attrib["initialValue"] = str(default)
 
         if data_type.units:
@@ -815,7 +850,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        default: Any,
+        default: float | None,
         data_type: FloatDataType,
     ):
         el = ET.SubElement(parent, "FloatArgumentType")
@@ -854,7 +889,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        default: Any,
+        default: int | None,
         data_type: IntegerDataType,
     ):
         el = ET.SubElement(parent, "IntegerArgumentType")
@@ -888,7 +923,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        default: Any,
+        default: str | None,
         data_type: StringDataType,
     ):
         el = ET.SubElement(parent, "StringArgumentType")
@@ -911,10 +946,13 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
+        default: Sequence[Any] | None,
         data_type: ArrayDataType,
     ):
         el = ET.SubElement(parent, "ArrayArgumentType")
         el.attrib["name"] = name
+        if default:
+            el.attrib["initialValue"] = _to_xml_value(default)
 
         element_type_name = f"{name}__el"
         el.attrib["arrayTypeRef"] = element_type_name
@@ -956,6 +994,7 @@ class XTCE12Generator:
                 parent,
                 system,
                 name=element_type_name,
+                default=None,
                 data_type=el_type,
             )
         elif isinstance(el_type, AggregateDataType):
@@ -963,6 +1002,7 @@ class XTCE12Generator:
                 parent,
                 system,
                 name=element_type_name,
+                default=None,
                 data_type=el_type,
             )
         elif isinstance(el_type, ArrayDataType):
@@ -970,6 +1010,7 @@ class XTCE12Generator:
                 parent,
                 system,
                 name=element_type_name,
+                default=None,
                 data_type=el_type,
             )
         elif isinstance(el_type, BinaryDataType):
@@ -1028,10 +1069,13 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
+        default: Mapping[str, Any] | None,
         data_type: AggregateDataType,
     ):
         el = ET.SubElement(parent, "AggregateArgumentType")
         el.attrib["name"] = name
+        if default:
+            el.attrib["initialValue"] = _to_xml_value(default)
 
         members_el = ET.SubElement(el, "MemberList")
         for member in data_type.members:
@@ -1046,9 +1090,9 @@ class XTCE12Generator:
                 member_el.attrib["shortDescription"] = member.short_description
 
             if member.long_description:
-                ET.SubElement(member_el, "LongDescription").text = (
-                    member.long_description
-                )
+                ET.SubElement(
+                    member_el, "LongDescription"
+                ).text = member.long_description
             if member.extra:
                 self.add_ancillary_data(member_el, member.extra)
 
@@ -1057,6 +1101,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
+                    default=None,
                     data_type=member,
                 )
             elif isinstance(member, AggregateMember):
@@ -1064,6 +1109,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
+                    default=None,
                     data_type=member,
                 )
             elif isinstance(member, ArrayMember):
@@ -1071,6 +1117,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
+                    default=None,
                     data_type=member,
                 )
             elif isinstance(member, BinaryMember):
@@ -1129,10 +1176,13 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
+        initial_value: Mapping[str, Any] | None,
         data_type: AggregateDataType,
     ):
         el = ET.SubElement(parent, "AggregateParameterType")
         el.attrib["name"] = name
+        if initial_value:
+            el.attrib["initialValue"] = _to_xml_value(initial_value)
 
         members_el = ET.SubElement(el, "MemberList")
         for member in data_type.members:
@@ -1147,9 +1197,9 @@ class XTCE12Generator:
                 member_el.attrib["shortDescription"] = member.short_description
 
             if member.long_description:
-                ET.SubElement(member_el, "LongDescription").text = (
-                    member.long_description
-                )
+                ET.SubElement(
+                    member_el, "LongDescription"
+                ).text = member.long_description
             if member.extra:
                 self.add_ancillary_data(member_el, member.extra)
 
@@ -1158,6 +1208,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
+                    initial_value=member.initial_value,
                     data_type=member,
                 )
             elif isinstance(member, AggregateMember):
@@ -1165,6 +1216,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
+                    initial_value=member.initial_value,
                     data_type=member,
                 )
             elif isinstance(member, ArrayMember):
@@ -1172,6 +1224,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
+                    initial_value=member.initial_value,
                     data_type=member,
                 )
             elif isinstance(member, BinaryMember):
@@ -1234,10 +1287,13 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
+        initial_value: Sequence[Any] | None,
         data_type: ArrayDataType,
     ):
         el = ET.SubElement(parent, "ArrayParameterType")
         el.attrib["name"] = name
+        if initial_value:
+            el.attrib["initialValue"] = _to_xml_value(initial_value)
 
         element_type_name = f"{name}__el"
         el.attrib["arrayTypeRef"] = element_type_name
@@ -1276,6 +1332,7 @@ class XTCE12Generator:
                 parent,
                 system,
                 name=element_type_name,
+                initial_value=None,
                 data_type=el_type,
             )
         elif isinstance(el_type, AggregateDataType):
@@ -1283,6 +1340,7 @@ class XTCE12Generator:
                 parent,
                 system,
                 name=element_type_name,
+                initial_value=None,
                 data_type=el_type,
             )
         elif isinstance(el_type, ArrayDataType):
@@ -1290,6 +1348,7 @@ class XTCE12Generator:
                 parent,
                 system,
                 name=element_type_name,
+                initial_value=None,
                 data_type=el_type,
             )
         elif isinstance(el_type, BinaryDataType):
@@ -1352,10 +1411,14 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
+        initial_value: datetime | None,
         data_type: AbsoluteTimeDataType,
     ):
         el = ET.SubElement(parent, "AbsoluteTimeParameterType")
         el.attrib["name"] = name
+
+        if initial_value:
+            el.attrib["initialValue"] = _datetime_to_xsd(initial_value)
 
         if data_type.encoding:
             self.add_data_encoding(el, system, data_type.encoding)
@@ -1401,7 +1464,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        initial_value: Any,
+        initial_value: bytes | bytearray | str | None,
         data_type: BinaryDataType,
     ):
         el = ET.SubElement(parent, "BinaryParameterType")
@@ -1423,7 +1486,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        initial_value: Any,
+        initial_value: bool | str | None,
         data_type: BooleanDataType,
     ):
         el = ET.SubElement(parent, "BooleanParameterType")
@@ -1456,14 +1519,16 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        initial_value: Any,
+        initial_value: str | Enum | None,
         data_type: EnumeratedDataType,
     ):
         el = ET.SubElement(parent, "EnumeratedParameterType")
         el.attrib["name"] = name
 
-        if initial_value:
-            el.attrib["initialValue"] = initial_value
+        if isinstance(initial_value, Enum):
+            el.attrib["initialValue"] = initial_value.name
+        elif initial_value:
+            el.attrib["initialValue"] = str(initial_value)
 
         if data_type.units:
             unit_set_el = ET.SubElement(el, "UnitSet")
@@ -1518,7 +1583,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        initial_value: Any,
+        initial_value: float | None,
         alarm: ThresholdAlarm | None,
         context_alarms: Sequence[ThresholdContextAlarm] | None,
         data_type: FloatDataType,
@@ -1582,7 +1647,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        initial_value: Any,
+        initial_value: int | None,
         alarm: ThresholdAlarm | None,
         context_alarms: Sequence[ThresholdContextAlarm] | None,
         data_type: IntegerDataType,
@@ -1640,7 +1705,7 @@ class XTCE12Generator:
         parent: ET.Element,
         system: System,
         name: str,
-        initial_value: Any,
+        initial_value: str | None,
         data_type: StringDataType,
     ):
         el = ET.SubElement(parent, "StringParameterType")
@@ -1665,7 +1730,7 @@ class XTCE12Generator:
         elif level == AlarmLevel.SEVERE:
             return "severe"
         else:
-            raise Exception("Unexpected alarm level")
+            raise ExportError("Unexpected alarm level")
 
     def add_static_alarm_ranges(self, parent: ET.Element, alarm: ThresholdAlarm):
         ranges_el = ET.SubElement(parent, "StaticAlarmRanges")
@@ -1766,7 +1831,7 @@ class XTCE12Generator:
                 raise ExportError("XTCE does not allow calibrators with StringEncoding")
             self.add_string_data_encoding(parent, encoding)
         else:
-            raise Exception("Unexpected encoding")
+            raise ExportError("Unexpected encoding")
 
     def add_binary_time_encoding(
         self, parent: ET.Element, system: System, encoding: BinaryEncoding
@@ -1931,7 +1996,7 @@ class XTCE12Generator:
         elif encoding.charset == Charset.UTF_32BE:
             el.attrib["encoding"] = "UTF-32BE"
         else:
-            raise Exception(f"Unexpected charset {encoding.charset}")
+            raise ExportError(f"Unexpected charset {encoding.charset}")
 
         if encoding.bits is not None:
             size_el = ET.SubElement(el, "SizeInBits")
@@ -2082,9 +2147,9 @@ class XTCE12Generator:
                 parameter_el.attrib["shortDescription"] = parameter.short_description
 
             if parameter.long_description:
-                ET.SubElement(parameter_el, "LongDescription").text = (
-                    parameter.long_description
-                )
+                ET.SubElement(
+                    parameter_el, "LongDescription"
+                ).text = parameter.long_description
 
             if parameter.aliases:
                 self.add_aliases(parameter_el, parameter.aliases)
@@ -2253,21 +2318,39 @@ class XTCE12Generator:
             for expression in expression.expressions:
                 self.add_expression_condition(el, system, expression)
         else:
-            raise Exception(f"Unexpected expression condition {expression.__class__}")
+            raise ExportError(f"Unexpected expression condition {expression.__class__}")
 
     def add_condition(
         self,
         parent: ET.Element,
         system: System,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         operator: str,
         calibrated: bool,
     ):
         condition_el = ET.SubElement(parent, "Condition")
 
-        pref_el = ET.SubElement(condition_el, "ParameterInstanceRef")
-        pref_el.attrib["parameterRef"] = self.make_parameter_ref(ref, start=system)
+        if isinstance(ref, str):
+            if ref.startswith("/yamcs/cmd/arg/"):
+                pref_el = ET.SubElement(condition_el, "ParameterInstanceRef")
+                pref_el.attrib["parameterRef"] = self.make_argument_ref(ref)
+            else:
+                pref_el = ET.SubElement(condition_el, "ParameterInstanceRef")
+                pref_el.attrib["parameterRef"] = self.make_parameter_ref(
+                    ref, start=system
+                )
+        elif isinstance(ref, (Parameter, ParameterMember)):
+            pref_el = ET.SubElement(condition_el, "ParameterInstanceRef")
+            pref_el.attrib["parameterRef"] = self.make_parameter_ref(ref, start=system)
+        elif isinstance(ref, (Argument, ArgumentMember)):
+            pref_el = ET.SubElement(condition_el, "ParameterInstanceRef")
+            pref_el.attrib["parameterRef"] = "/yamcs/cmd/arg/" + self.make_argument_ref(
+                ref
+            )
+        else:
+            raise ExportError("Unexpected condition reference")
+
         pref_el.attrib["useCalibratedValue"] = _to_xml_value(calibrated)
 
         ET.SubElement(condition_el, "ComparisonOperator").text = operator
@@ -2298,6 +2381,8 @@ class XTCE12Generator:
                 self.add_indirect_parameter_ref_entry(el, container, entry)
             elif isinstance(entry, ContainerEntry):
                 self.add_container_ref_entry(el, container, entry)
+            elif isinstance(entry, IndirectParameterEntry):
+                self.add_indirect_parameter_ref_entry(el, container, entry)
             else:
                 raise ExportError(f"Unexpected entry {entry.__class__}")
 
@@ -2398,9 +2483,7 @@ class XTCE12Generator:
             start=container.system,
         )
         inst_el.attrib["instance"] = str(entry.instance)
-        inst_el.attrib["useCalibratedValue"] = _to_xml_value(
-            entry.use_calibrated_value
-        )
+        inst_el.attrib["useCalibratedValue"] = _to_xml_value(entry.use_calibrated_value)
 
     def add_container_ref_entry(
         self,
@@ -2428,7 +2511,9 @@ class XTCE12Generator:
             fv_el.text = str(entry.bitpos + entry.offset)
 
         if entry.repeat:
-            self.add_repeat_entry(el, container.system, entry.repeat, allow_argument=False)
+            self.add_repeat_entry(
+                el, container.system, entry.repeat, allow_argument=False
+            )
 
         if entry.condition:
             cond_el = ET.SubElement(el, "IncludeCondition")
@@ -2473,9 +2558,7 @@ class XTCE12Generator:
         el.attrib["useCalibratedValue"] = _to_xml_value(
             time_association.use_calibrated_value
         )
-        el.attrib["interpolateTime"] = _to_xml_value(
-            time_association.interpolate_time
-        )
+        el.attrib["interpolateTime"] = _to_xml_value(time_association.interpolate_time)
         el.attrib["unit"] = time_association.unit.value
 
         if time_association.offset is not None:
@@ -2499,7 +2582,9 @@ class XTCE12Generator:
             )
         elif isinstance(value, ArgumentValue):
             if not allow_argument:
-                raise ExportError("Cannot reference an argument from a container repeat")
+                raise ExportError(
+                    "Cannot reference an argument from a container repeat"
+                )
 
             dyn_el = ET.SubElement(parent, "DynamicValue")
             ref_el = ET.SubElement(dyn_el, "ArgumentInstanceRef")
@@ -2541,6 +2626,19 @@ class XTCE12Generator:
             return self.make_ref(target, start)
         else:
             raise ExportError("Unexpected parameter reference")
+
+    def make_argument_ref(self, target: Argument | ArgumentMember | str):
+        if isinstance(target, Argument):
+            return target.name
+        elif isinstance(target, ArgumentMember):
+            argument_ref = target.argument.name
+            for member in target.path:
+                argument_ref += "/" + member.name
+            return argument_ref
+        elif isinstance(target, str):
+            return target
+        else:
+            raise ExportError("Unexpected argument reference")
 
     def make_container_ref(self, target: Container | str, start: System):
         if isinstance(target, Container):
@@ -2586,7 +2684,7 @@ class XTCE12Generator:
 
     def add_header(self, parent: ET.Element, header: Header):
         header_el = ET.SubElement(parent, "Header")
-       
+
         history_list: list[History] = header.get_history_list()
         author_list: list[str] = header.get_author_list()
 
@@ -2594,11 +2692,13 @@ class XTCE12Generator:
         version: str | None = header.get_version()
         validation_status: str = header.validation_status
         classification: str = header.get_classification()
-        classification_instructions: str | None = header.get_classification_instructions()
+        classification_instructions: str | None = (
+            header.get_classification_instructions()
+        )
 
         header_el.attrib["validationStatus"] = validation_status
         header_el.attrib["classification"] = classification
-        
+
         if classification_instructions:
             header_el.attrib["classificationInstructions"] = classification_instructions
         if version:
@@ -2624,13 +2724,22 @@ class XTCE12Generator:
     ):
         if parent is None:
             el = ET.Element("SpaceSystem")
-            el.attrib["xmlns"] = "http://www.omg.org/spec/XTCE/20180204"
-            if add_schema_location:
-                el.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
-                el.attrib["xsi:schemaLocation"] = "{} {}".format(
-                    "http://www.omg.org/spec/XTCE/20180204",
-                    "https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd",
-                )
+            if self.is_1_2():
+                el.attrib["xmlns"] = "http://www.omg.org/spec/XTCE/20180204"
+                if add_schema_location:
+                    el.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+                    el.attrib["xsi:schemaLocation"] = "{} {}".format(
+                        "http://www.omg.org/spec/XTCE/20180204",
+                        "https://www.omg.org/spec/XTCE/20180204/SpaceSystem.xsd",
+                    )
+            elif self.is_1_3():
+                el.attrib["xmlns"] = "http://www.omg.org/spec/XTCE/20250214"
+                if add_schema_location:
+                    el.attrib["xmlns:xsi"] = "http://www.w3.org/2001/XMLSchema-instance"
+                    el.attrib["xsi:schemaLocation"] = "{} {}".format(
+                        "http://www.omg.org/spec/XTCE/20250214",
+                        "https://www.omg.org/spec/XTCE/20250214/SpaceSystem.xsd",
+                    )
         else:
             el = ET.SubElement(parent, "SpaceSystem")
 

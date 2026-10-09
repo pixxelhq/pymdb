@@ -125,6 +125,7 @@ class BinaryEncoding(Encoding):
         Custom decoder, when this encoding is used for telemetry
         """
 
+
 class BinaryTimeEncoding(BinaryEncoding):
     def __init__(
         self,
@@ -134,11 +135,9 @@ class BinaryTimeEncoding(BinaryEncoding):
         decoder: UnnamedAlgorithm | None = None,
     ) -> None:
         super().__init__(
-            bits=bits,
-            length_bits=length_bits,
-            encoder=encoder,
-            decoder=decoder
+            bits=bits, length_bits=length_bits, encoder=encoder, decoder=decoder
         )
+
 
 class IntegerEncoding(Encoding):
     def __init__(

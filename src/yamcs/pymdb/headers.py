@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, TextIO
 from enum import Enum
 
 from functools import total_ordering
 import re
+
 
 class ValidationStatus(str, Enum):
     UNKNOWN = "Unknown"
@@ -15,6 +14,7 @@ class ValidationStatus(str, Enum):
     VALIDATED = "Validated"
     RELEASED = "Released"
     WITHDRAWN = "Withdrawn"
+
 
 @total_ordering
 class History:
@@ -80,8 +80,17 @@ class History:
 
         return 0
 
+
 class Header:
-    __slots__ = ("_version", "_date", "_history_list", "_author_list", "_validation_status", "_classification", "_classification_instructions")
+    __slots__ = (
+        "_version",
+        "_date",
+        "_history_list",
+        "_author_list",
+        "_validation_status",
+        "_classification",
+        "_classification_instructions",
+    )
 
     def __init__(self, validation_status: str | ValidationStatus) -> None:
         self._version: str | None = None
@@ -137,7 +146,7 @@ class Header:
 
     def get_classification_instructions(self) -> str | None:
         return self._classification_instructions
-    
+
     def get_version(self) -> str | None:
         return self._version
 
@@ -155,7 +164,6 @@ class Header:
 
     def add_author(self, author: str) -> None:
         self._author_list.append(author)
-
 
     def __str__(self) -> str:
         return f"version: {self._version}, date: {self._date}"
