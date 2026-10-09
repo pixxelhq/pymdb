@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Literal, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, Union
 
-from yamcs.pymdb.containers import ParameterEntry
+from yamcs.pymdb.containers import (
+    IndirectParameterEntry,
+    ParameterEntry,
+    RepeatEntry,
+)
 from yamcs.pymdb.datatypes import (
     AbsoluteTimeDataType,
     AggregateDataType,
@@ -23,6 +28,7 @@ from yamcs.pymdb.datatypes import (
     StringDataType,
 )
 from yamcs.pymdb.encodings import Encoding, TimeEncoding
+from yamcs.pymdb.exceptions import DuplicateNameError
 from yamcs.pymdb.expressions import Expression
 from yamcs.pymdb.verifiers import (
     AcceptedVerifier,
@@ -39,6 +45,9 @@ from yamcs.pymdb.verifiers import (
 if TYPE_CHECKING:
     from yamcs.pymdb.calibrators import Calibrator
     from yamcs.pymdb.systems import System
+
+
+DefaultT = TypeVar("DefaultT")
 
 
 class CommandLevel(Enum):
@@ -77,12 +86,12 @@ class CommandLevel(Enum):
     """
 
 
-class Argument(DataType):
+class Argument(DataType, Generic[DefaultT]):
     def __init__(
         self,
         name: str,
         *,
-        default: Any = None,
+        default: DefaultT | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -92,7 +101,7 @@ class Argument(DataType):
         self.name: str = name
         """Short name of this argument"""
 
-        self.default: Any = default
+        self.default: DefaultT | None = default
         """Default value"""
 
         DataType.__init__(
@@ -108,13 +117,13 @@ class Argument(DataType):
             return self.name
 
 
-class AbsoluteTimeArgument(Argument, AbsoluteTimeDataType):
+class AbsoluteTimeArgument(Argument[datetime], AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch,
         *,
-        default: Any = None,
+        reference: Epoch | None = None,
+        default: datetime | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -137,13 +146,13 @@ class AbsoluteTimeArgument(Argument, AbsoluteTimeDataType):
         )
 
 
-class AggregateArgument(Argument, AggregateDataType):
+class AggregateArgument(Argument[Mapping[str, Any]], AggregateDataType):
     def __init__(
         self,
         name: str,
         members: Sequence[Member],
         *,
-        default: Any = None,
+        default: Mapping[str, Any] | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -164,14 +173,14 @@ class AggregateArgument(Argument, AggregateDataType):
         )
 
 
-class ArrayArgument(Argument, ArrayDataType):
+class ArrayArgument(Argument[Sequence[Any]], ArrayDataType):
     def __init__(
         self,
         name: str,
         data_type: DataType,
         length: int | ArgumentValue | ParameterValue,
         *,
-        default: Any = None,
+        default: Sequence[Any] | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -193,14 +202,14 @@ class ArrayArgument(Argument, ArrayDataType):
         )
 
 
-class BinaryArgument(Argument, BinaryDataType):
+class BinaryArgument(Argument[Union[bytes, bytearray, str]], BinaryDataType):
     def __init__(
         self,
         name: str,
         *,
         min_length: int | None = None,
         max_length: int | None = None,
-        default: Any = None,
+        default: bytes | bytearray | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -224,14 +233,14 @@ class BinaryArgument(Argument, BinaryDataType):
         )
 
 
-class BooleanArgument(Argument, BooleanDataType):
+class BooleanArgument(Argument[Union[bool, str]], BooleanDataType):
     def __init__(
         self,
         name: str,
         *,
         zero_string_value: str = "False",
         one_string_value: str = "True",
-        default: Any = None,
+        default: bool | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -255,13 +264,13 @@ class BooleanArgument(Argument, BooleanDataType):
         )
 
 
-class EnumeratedArgument(Argument, EnumeratedDataType):
+class EnumeratedArgument(Argument[Union[str, Enum]], EnumeratedDataType):
     def __init__(
         self,
         name: str,
         choices: Choices,
         *,
-        default: Any = None,
+        default: str | Enum | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -284,7 +293,7 @@ class EnumeratedArgument(Argument, EnumeratedDataType):
         )
 
 
-class FloatArgument(Argument, FloatDataType):
+class FloatArgument(Argument[float], FloatDataType):
     def __init__(
         self,
         name: str,
@@ -294,7 +303,7 @@ class FloatArgument(Argument, FloatDataType):
         minimum_inclusive: bool = True,
         maximum: float | None = None,
         maximum_inclusive: bool = True,
-        default: Any = None,
+        default: float | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -323,7 +332,7 @@ class FloatArgument(Argument, FloatDataType):
         )
 
 
-class IntegerArgument(Argument, IntegerDataType):
+class IntegerArgument(Argument[int], IntegerDataType):
     def __init__(
         self,
         name: str,
@@ -332,7 +341,7 @@ class IntegerArgument(Argument, IntegerDataType):
         bits: int = 32,
         minimum: int | None = None,
         maximum: int | None = None,
-        default: Any = None,
+        default: int | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -360,14 +369,14 @@ class IntegerArgument(Argument, IntegerDataType):
         )
 
 
-class StringArgument(Argument, StringDataType):
+class StringArgument(Argument[str], StringDataType):
     def __init__(
         self,
         name: str,
         *,
         min_length: int | None = None,
         max_length: int | None = None,
-        default: Any = None,
+        default: str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -399,6 +408,7 @@ class ArgumentEntry:
         short_description: str | None = None,
         bitpos: int | None = None,
         offset: int = 0,
+        repeat: RepeatEntry | None = None,
         condition: Expression | None = None,
     ) -> None:
         self.argument: Argument = argument
@@ -423,6 +433,9 @@ class ArgumentEntry:
         absolute bit position.
         """
 
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
         self.condition: Expression | None = condition
         """If set, this entry is only present when the condition is met"""
 
@@ -436,6 +449,7 @@ class FixedValueEntry:
         short_description: str | None = None,
         bitpos: int | None = None,
         offset: int = 0,
+        repeat: RepeatEntry | None = None,
         condition: Expression | None = None,
         bits: int | None = None,
     ) -> None:
@@ -477,6 +491,9 @@ class FixedValueEntry:
         absolute bit position.
         """
 
+        self.repeat: RepeatEntry | None = repeat
+        """If set, this entry repeats according to the repeat specification."""
+
         self.condition: Expression | None = condition
         """If set, encode this entry only when the condition is met"""
 
@@ -493,7 +510,12 @@ class FixedValueEntry:
         """
 
 
-CommandEntry = Union[ArgumentEntry, ParameterEntry, FixedValueEntry]
+CommandEntry = Union[
+    ArgumentEntry,
+    IndirectParameterEntry,
+    ParameterEntry,
+    FixedValueEntry,
+]
 
 
 class TransmissionConstraint:
@@ -503,6 +525,25 @@ class TransmissionConstraint:
 
         self.timeout: float = timeout
         """How long to wait for the constraint to be satisfied (in seconds)"""
+
+
+def _is_encoded(data_type: DataType) -> bool:
+    """
+    Whether this data type is fully encoded.
+
+    Complex types do not carry an encoding themselves, so they are
+    considered encoded only if every contained type is.
+    """
+    if data_type.encoding:
+        return True
+    elif isinstance(data_type, AggregateDataType):
+        return bool(data_type.members) and all(
+            _is_encoded(member) for member in data_type.members
+        )
+    elif isinstance(data_type, ArrayDataType):
+        return _is_encoded(data_type.data_type)
+    else:
+        return False
 
 
 class Command:
@@ -554,7 +595,7 @@ class Command:
             constraints = list(constraint)
         elif isinstance(constraint, TransmissionConstraint):
             constraints.append(constraint)
-        self.constraints = constraints
+        self.constraints: list[TransmissionConstraint] = constraints
         """
         Constraints to check before sending the command.
 
@@ -586,7 +627,7 @@ class Command:
         """Message explaining the importance of this telecommand"""
 
         if name in system._commands_by_name:
-            raise Exception(f"System already contains a command {name}")
+            raise DuplicateNameError(f"Command '{name}' already exists in system")
         system._commands_by_name[name] = self
 
     @property
@@ -624,7 +665,11 @@ class Command:
 
         return path
 
-    def get_argument(self, name: str, visit_parents=True):
+    def get_argument(
+        self,
+        name: str,
+        visit_parents: bool = True,
+    ) -> Argument | None:
         """
         Return the argument for the given name
 
@@ -648,11 +693,15 @@ class Command:
         If unset, the default behaviour is to have a consecutive
         entry for each argument that has an encoding defined, in the
         same order as the arguments.
+
+        Aggregate and array arguments do not specify an encoding
+        themselves, and are included only if all of the types they
+        group together are encoded.
         """
         if self._entries is None:
             res = []
             for argument in self.arguments:
-                if argument.encoding:
+                if _is_encoded(argument):
                     res.append(ArgumentEntry(argument))
             return res
         else:

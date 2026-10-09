@@ -5,14 +5,18 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Literal, Type, Union
+from typing import TYPE_CHECKING, Any, Generic, Literal, Type, TypeVar, Union
 
 from yamcs.pymdb.encodings import Encoding, TimeEncoding
 
 if TYPE_CHECKING:
     from yamcs.pymdb.calibrators import Calibrator
     from yamcs.pymdb.commands import Argument
-    from yamcs.pymdb.parameters import AbsoluteTimeParameter, Parameter
+    from yamcs.pymdb.expressions import ParameterMember
+    from yamcs.pymdb.parameters import Parameter, AbsoluteTimeParameter
+
+
+InitialValueT = TypeVar("InitialValueT")
 
 
 class Epoch(Enum):
@@ -27,12 +31,24 @@ Choices = Union[Sequence[Union[tuple[int, str], tuple[int, str, str]]], Type[Enu
 
 @dataclass
 class ParameterValue:
-    parameter: Parameter | str
+    parameter: Parameter | ParameterMember | str
     """
     Reference the value of this parameter.
 
     The reference may be specified as ``str``, which is intended for
     referencing a parameter that is not managed with PyMDB.
+    """
+
+
+@dataclass
+class AggregateMemberValue:
+    member: str
+    """
+    Reference a member of the current enclosing aggregate.
+
+    This reference is resolved lexically by Yamcs, starting with the nearest
+    aggregate being processed. It is intended for dynamic lengths of
+    :class:`ArrayMember` objects.
     """
 
 
@@ -45,6 +61,9 @@ class ArgumentValue:
     The reference may also be specified as ``str``, representing the
     argument's name.
     """
+
+
+ArrayLength = int | ParameterValue | AggregateMemberValue | ArgumentValue
 
 
 class DynamicInteger(ParameterValue):
@@ -93,7 +112,12 @@ class DataType:
 class AbsoluteTimeDataType(DataType):
     def __init__(
         self,
-        reference: Epoch | datetime | AbsoluteTimeParameter,
+        reference: Epoch
+        | datetime
+        | AbsoluteTimeParameter
+        | ParameterMember
+        | str
+        | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -108,7 +132,9 @@ class AbsoluteTimeDataType(DataType):
             units=units,
             encoding=encoding,
         )
-        self.reference: Epoch | datetime | AbsoluteTimeParameter = reference
+        self.reference: (
+            Epoch | datetime | AbsoluteTimeParameter | ParameterMember | str | None
+        ) = reference
 
 
 class AggregateDataType(DataType):
@@ -135,14 +161,14 @@ class AggregateDataType(DataType):
         for member in self.members:
             if member.name == name:
                 return member
-        raise KeyError
+        raise KeyError(f"Aggregate has no member named '{name}'")
 
 
 class ArrayDataType(DataType):
     def __init__(
         self,
         data_type: DataType,
-        length: int | ParameterValue | ArgumentValue,
+        length: ArrayLength,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -156,7 +182,7 @@ class ArrayDataType(DataType):
             encoding=encoding,
         )
         self.data_type: DataType = data_type
-        self.length: int | ParameterValue | ArgumentValue = length
+        self.length: ArrayLength = length
 
 
 class BinaryDataType(DataType):
@@ -350,11 +376,24 @@ class StringDataType(DataType):
         """Maximum length in characters"""
 
 
-class Member(DataType):
+class Member(DataType, Generic[InitialValueT]):
+    """
+    Base class for an aggregate member.
+
+    Implementations are: :class:`AbsoluteTimeMember`,
+    :class:`BinaryMember`, :class:`BooleanMember`,
+    :class:`EnumeratedMember`, :class:`FloatMember`,
+    :class:`IntegerMember` and :class:`StringMember`.
+
+    And complex members :class:`AggregateMember` and
+    :class:`ArrayMember`. These do not directly specify an
+    encoding, but group together other members.
+    """
+
     def __init__(
         self,
         name: str,
-        initial_value: Any = None,
+        initial_value: InitialValueT | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -373,15 +412,20 @@ class Member(DataType):
         self.name: str = name
         """Member name"""
 
-        self.initial_value: Any = initial_value
+        self.initial_value: InitialValueT | None = initial_value
         """Initial value"""
 
 
-class AbsoluteTimeMember(Member, AbsoluteTimeDataType):
+class AbsoluteTimeMember(Member[datetime], AbsoluteTimeDataType):
     def __init__(
         self,
         name: str,
-        reference: Epoch | datetime | AbsoluteTimeParameter,
+        reference: Epoch
+        | datetime
+        | AbsoluteTimeParameter
+        | ParameterMember
+        | str
+        | None = None,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,
@@ -405,12 +449,12 @@ class AbsoluteTimeMember(Member, AbsoluteTimeDataType):
         )
 
 
-class AggregateMember(Member, AggregateDataType):
+class AggregateMember(Member[Mapping[str, Any]], AggregateDataType):
     def __init__(
         self,
         name: str,
         members: Sequence[Member],
-        initial_value: Any = None,
+        initial_value: Mapping[str, Any] | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -431,12 +475,12 @@ class AggregateMember(Member, AggregateDataType):
         )
 
 
-class ArrayMember(Member, ArrayDataType):
+class ArrayMember(Member[Sequence[Any]], ArrayDataType):
     def __init__(
         self,
         name: str,
         data_type: DataType,
-        length: int,
+        length: ArrayLength,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,
@@ -459,13 +503,13 @@ class ArrayMember(Member, ArrayDataType):
         )
 
 
-class BinaryMember(Member, BinaryDataType):
+class BinaryMember(Member[Union[bytes, bytearray, str]], BinaryDataType):
     def __init__(
         self,
         name: str,
         min_length: int | None = None,
         max_length: int | None = None,
-        initial_value: Any = None,
+        initial_value: bytes | bytearray | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -489,13 +533,13 @@ class BinaryMember(Member, BinaryDataType):
         )
 
 
-class BooleanMember(Member, BooleanDataType):
+class BooleanMember(Member[Union[bool, str]], BooleanDataType):
     def __init__(
         self,
         name: str,
         zero_string_value: str = "False",
         one_string_value: str = "True",
-        initial_value: Any = None,
+        initial_value: bool | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -519,12 +563,12 @@ class BooleanMember(Member, BooleanDataType):
         )
 
 
-class EnumeratedMember(Member, EnumeratedDataType):
+class EnumeratedMember(Member[Union[str, Enum]], EnumeratedDataType):
     def __init__(
         self,
         name: str,
         choices: Choices,
-        initial_value: Any = None,
+        initial_value: str | Enum | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -547,7 +591,7 @@ class EnumeratedMember(Member, EnumeratedDataType):
         )
 
 
-class FloatMember(Member, FloatDataType):
+class FloatMember(Member[float], FloatDataType):
     def __init__(
         self,
         name: str,
@@ -556,7 +600,7 @@ class FloatMember(Member, FloatDataType):
         minimum_inclusive: bool = True,
         maximum: float | None = None,
         maximum_inclusive: bool = True,
-        initial_value: Any = None,
+        initial_value: float | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -585,7 +629,7 @@ class FloatMember(Member, FloatDataType):
         )
 
 
-class IntegerMember(Member, IntegerDataType):
+class IntegerMember(Member[int], IntegerDataType):
     def __init__(
         self,
         name: str,
@@ -593,7 +637,7 @@ class IntegerMember(Member, IntegerDataType):
         bits: int = 32,
         minimum: int | None = None,
         maximum: int | None = None,
-        initial_value: Any = None,
+        initial_value: int | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -621,13 +665,13 @@ class IntegerMember(Member, IntegerDataType):
         )
 
 
-class StringMember(Member, StringDataType):
+class StringMember(Member[str], StringDataType):
     def __init__(
         self,
         name: str,
         min_length: int | None = None,
         max_length: int | None = None,
-        initial_value: Any = None,
+        initial_value: str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,

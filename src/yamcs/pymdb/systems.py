@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING, Literal, TextIO
 
 from yamcs.pymdb import xtce
+from yamcs.pymdb.exceptions import DuplicateNameError
 
 if TYPE_CHECKING:
     from yamcs.pymdb.algorithms import Algorithm
     from yamcs.pymdb.commands import Command
     from yamcs.pymdb.containers import Container
     from yamcs.pymdb.parameters import Parameter
+    from yamcs.pymdb.headers import Header
 
 
 class System:
@@ -32,6 +34,7 @@ class System:
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
+        header: Header | None = None,
     ):
         self.name: str = name
         """Short name of this system"""
@@ -48,11 +51,18 @@ class System:
         self.extra: dict[str, str] = dict(extra or {})
         """Arbitrary information, keyed by name"""
 
+        self._header: Header | None = header
+        """Header content of thee SpaceSystem"""
+
         self._algorithms_by_name: dict[str, Algorithm] = {}
         self._commands_by_name: dict[str, Command] = {}
         self._containers_by_name: dict[str, Container] = {}
         self._parameters_by_name: dict[str, Parameter] = {}
         self._subsystems_by_name: dict[str, Subsystem] = {}
+
+    @property
+    def header(self) -> Header | None:
+        return self._header
 
     @property
     def root(self) -> System:
@@ -113,8 +123,6 @@ class System:
     def remove_parameter(self, name: str) -> bool:
         """
         Removes a parameter directly belonging to this system.
-
-        Raises an exception if no such parameter exists
         """
         try:
             self._parameters_by_name.pop(name)
@@ -125,8 +133,6 @@ class System:
     def remove_command(self, name: str) -> bool:
         """
         Removes a command directly belonging to this system.
-
-        Raises an exception if no such command exists
         """
         try:
             self._commands_by_name.pop(name)
@@ -137,8 +143,6 @@ class System:
     def remove_container(self, name: str) -> bool:
         """
         Removes a container directly belonging to this system.
-
-        Raises an exception if no such container exists
         """
         try:
             self._containers_by_name.pop(name)
@@ -149,8 +153,6 @@ class System:
     def remove_algorithm(self, name: str) -> bool:
         """
         Removes an algorithm directly belonging to this system.
-
-        Raises an exception if no such algorithm exists
         """
         try:
             self._algorithms_by_name.pop(name)
@@ -161,8 +163,6 @@ class System:
     def remove_subsystem(self, name: str) -> bool:
         """
         Removes a subsystem directly belonging to this system.
-
-        Raises an exception if no such subsystem exists
         """
         try:
             self._subsystems_by_name.pop(name)
@@ -214,6 +214,7 @@ class System:
         self,
         fp: TextIO,
         *,
+        format: Literal["xtce-1.2", "xtce-1.3"] = "xtce-1.2",
         indent: str = "  ",
         top_comment: bool | str = True,
         skip_algorithms: bool = False,
@@ -247,6 +248,7 @@ class System:
             within ``<TelemetryMetaData />``.
         """
         xml = self.dumps(
+            format=format,
             indent=indent,
             top_comment=top_comment,
             skip_algorithms=skip_algorithms,
@@ -260,6 +262,7 @@ class System:
     def dumps(
         self,
         *,
+        format: Literal["xtce-1.2", "xtce-1.3"] = "xtce-1.2",
         indent: str = "  ",
         top_comment: bool | str = True,
         skip_algorithms: bool = False,
@@ -271,6 +274,8 @@ class System:
         """
         Serialize this system to an XTCE-formatted string
 
+        :param format:
+            Output format.
         :param indent:
             String used to indent each level. For most compact, use empty string.
             Defaults to two spaces.
@@ -289,8 +294,16 @@ class System:
             If ``True``, skip the ``<ParameterSet />`` and ``<ParameterTypeSet />``
             within ``<TelemetryMetaData />``.
         """
-        return xtce.XTCE12Generator(
+        if format == "xtce-1.2":
+            xtce_version = "1.2"
+        elif format == "xtce-1.3":
+            xtce_version = "1.3"
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+
+        return xtce.XTCEGenerator(
             self,
+            version=xtce_version,
             indent=indent,
             top_comment=top_comment,
             skip_algorithms=skip_algorithms,
@@ -334,8 +347,8 @@ class Subsystem(System):
         """Parent system"""
 
         if name in system._subsystems_by_name:
-            raise Exception(
-                "System {} already contains a subsystem {}".format(
+            raise DuplicateNameError(
+                "Subsystem '{}' already exists in parent system '{}'".format(
                     system.qualified_name, name
                 )
             )

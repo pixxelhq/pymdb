@@ -4,7 +4,9 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from yamcs.pymdb.parameters import AggregateParameter, Member, Parameter
+    from yamcs.pymdb.commands import AggregateArgument, Argument
+    from yamcs.pymdb.datatypes import Member
+    from yamcs.pymdb.parameters import AggregateParameter, Parameter
 
 
 class ParameterMember:
@@ -13,12 +15,40 @@ class ParameterMember:
         parameter: AggregateParameter,
         path: Member | list[Member],
     ):
-        self.parameter = parameter
+        self.parameter: AggregateParameter = parameter
 
         if isinstance(path, Sequence):
-            self.path: list[Member] = path
+            self.path: list[Member] = list(path)
         else:
             self.path: list[Member] = [path]
+
+    def __str__(self):
+        parameter_ref = f"{self.parameter.name}"
+        for member in self.path:
+            parameter_ref += f"/{member.name}"
+
+        return parameter_ref
+
+
+class ArgumentMember:
+    def __init__(
+        self,
+        argument: AggregateArgument,
+        path: Member | list[Member],
+    ):
+        self.argument: AggregateArgument = argument
+
+        if isinstance(path, Sequence):
+            self.path: list[Member] = list(path)
+        else:
+            self.path: list[Member] = [path]
+
+    def __str__(self):
+        argument_ref = f"{self.argument.name}"
+        for member in self.path:
+            argument_ref += f"/{member.name}"
+
+        return argument_ref
 
 
 class Expression:
@@ -56,11 +86,11 @@ class OrExpression(Expression):
 class EqExpression(Expression):
     def __init__(
         self,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         calibrated: bool = True,
     ):
-        self.ref: Parameter | ParameterMember | str = ref
+        self.ref: Parameter | ParameterMember | Argument | ArgumentMember | str = ref
         self.value: Any = value
         self.calibrated: bool = calibrated
 
@@ -68,11 +98,11 @@ class EqExpression(Expression):
 class NeExpression(Expression):
     def __init__(
         self,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         calibrated: bool = True,
     ):
-        self.ref: Parameter | ParameterMember | str = ref
+        self.ref: Parameter | ParameterMember | Argument | ArgumentMember | str = ref
         self.value: Any = value
         self.calibrated: bool = calibrated
 
@@ -80,11 +110,11 @@ class NeExpression(Expression):
 class LtExpression(Expression):
     def __init__(
         self,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         calibrated: bool = True,
     ):
-        self.ref: Parameter | ParameterMember | str = ref
+        self.ref: Parameter | ParameterMember | Argument | ArgumentMember | str = ref
         self.value: Any = value
         self.calibrated: bool = calibrated
 
@@ -92,11 +122,11 @@ class LtExpression(Expression):
 class LteExpression(Expression):
     def __init__(
         self,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         calibrated: bool = True,
     ):
-        self.ref: Parameter | ParameterMember | str = ref
+        self.ref: Parameter | ParameterMember | Argument | ArgumentMember | str = ref
         self.value: Any = value
         self.calibrated: bool = calibrated
 
@@ -104,11 +134,11 @@ class LteExpression(Expression):
 class GtExpression(Expression):
     def __init__(
         self,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         calibrated: bool = True,
     ):
-        self.ref: Parameter | ParameterMember | str = ref
+        self.ref: Parameter | ParameterMember | Argument | ArgumentMember | str = ref
         self.value: Any = value
         self.calibrated: bool = calibrated
 
@@ -116,36 +146,60 @@ class GtExpression(Expression):
 class GteExpression(Expression):
     def __init__(
         self,
-        ref: Parameter | ParameterMember | str,
+        ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
         value: Any,
         calibrated: bool = True,
     ):
-        self.ref: Parameter | ParameterMember | str = ref
+        self.ref: Parameter | ParameterMember | Argument | ArgumentMember | str = ref
         self.value: Any = value
         self.calibrated: bool = calibrated
 
 
-def eq(ref: Parameter | ParameterMember | str, value: Any, calibrated=True):
+def eq(
+    ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
+    value: Any,
+    calibrated=True,
+):
     return EqExpression(ref, value, calibrated)
 
 
-def ne(ref: Parameter | ParameterMember | str, value: Any, calibrated=True):
+def ne(
+    ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
+    value: Any,
+    calibrated=True,
+):
     return NeExpression(ref, value, calibrated)
 
 
-def lt(ref: Parameter | ParameterMember | str, value: Any, calibrated=True):
+def lt(
+    ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
+    value: Any,
+    calibrated=True,
+):
     return LtExpression(ref, value, calibrated)
 
 
-def lte(ref: Parameter | ParameterMember | str, value: Any, calibrated=True):
+def lte(
+    ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
+    value: Any,
+    calibrated=True,
+):
     return LteExpression(ref, value, calibrated)
 
 
-def gt(ref: Parameter | ParameterMember | str, value: Any, calibrated=True):
+def gt(
+    ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
+    value: Any,
+    calibrated=True,
+):
     return GtExpression(ref, value, calibrated)
 
 
-def gte(ref: Parameter | ParameterMember | str, value: Any, calibrated=True):
+def gte(
+    ref: Parameter | ParameterMember | Argument | ArgumentMember | str,
+    value: Any,
+    calibrated=True,
+):
     return GteExpression(ref, value, calibrated)
 
 

@@ -4,11 +4,13 @@ from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING
 
 from yamcs.pymdb.ancillary import AncillaryData
+from yamcs.pymdb.exceptions import DuplicateNameError
 
 if TYPE_CHECKING:
     from yamcs.pymdb.containers import Container
     from yamcs.pymdb.parameters import Parameter
     from yamcs.pymdb.systems import System
+    from yamcs.pymdb.expressions import ParameterMember, ArgumentMember
 
 
 class Algorithm:
@@ -61,7 +63,7 @@ class Algorithm:
         """Algorithm triggers"""
 
         if name in system._algorithms_by_name:
-            raise Exception(f"System already contains an algorithm {name}")
+            raise DuplicateNameError(f"Algorithm '{name}' already exists in system")
         system._algorithms_by_name[name] = self
 
     @property
@@ -90,13 +92,13 @@ class Algorithm:
 class InputParameter:
     def __init__(
         self,
-        parameter: Parameter | str,
+        parameter: Parameter | ParameterMember | ArgumentMember | str,
         *,
         name: str | None = None,
         required: bool = False,
         instance: int = 0,
     ):
-        self.parameter = parameter
+        self.parameter: Parameter | ParameterMember | ArgumentMember | str = parameter
         """Reference parameter"""
 
         self.name: str | None = name
@@ -113,11 +115,11 @@ class InputParameter:
 class OutputParameter:
     def __init__(
         self,
-        parameter: Parameter | str,
+        parameter: Parameter | ParameterMember | str,
         *,
         name: str | None = None,
     ):
-        self.parameter = parameter
+        self.parameter: Parameter | ParameterMember | str = parameter
         """Reference parameter"""
 
         self.name: str | None = name
@@ -132,16 +134,14 @@ class Trigger:
 
 
 class ParameterTrigger(Trigger):
-
-    def __init__(self, parameter: Parameter | str) -> None:
-        self.parameter = parameter
+    def __init__(self, parameter: Parameter | ParameterMember | str) -> None:
+        self.parameter: Parameter | ParameterMember | str = parameter
         """Reference parameter"""
 
 
 class ContainerTrigger(Trigger):
-
     def __init__(self, container: Container | str) -> None:
-        self.container = container
+        self.container: Container | str = container
         """Reference container"""
 
 

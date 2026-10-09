@@ -6,3 +6,8 @@ dist/
 
 .python-version
 *.pyc
+
+venv/
+.DS_Store
+
+.vscode
