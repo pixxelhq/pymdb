@@ -44,6 +44,7 @@ from yamcs.pymdb.datatypes import (
     AbsoluteTimeMember,
     AggregateDataType,
     AggregateMember,
+    AggregateMemberValue,
     ArgumentValue,
     ArrayDataType,
     ArrayMember,
@@ -125,6 +126,11 @@ from yamcs.pymdb.verifiers import (
 
 if TYPE_CHECKING:
     from yamcs.pymdb.systems import System
+
+
+YAMCS_XTCE_NAMESPACE = "http://yamcs.org/schema/xtce"
+YAMCS_AGGREGATE_MEMBER_ATTRIBUTE = f"{{{YAMCS_XTCE_NAMESPACE}}}aggregateMember"
+ET.register_namespace("yamcs", YAMCS_XTCE_NAMESPACE)
 
 
 def _to_xml_value(value: Any):
@@ -919,7 +925,9 @@ class XTCE12Generator:
         ET.SubElement(start_idx_el, "FixedValue").text = "0"
 
         end_idx_el = ET.SubElement(dim_el, "EndingIndex")
-        if isinstance(data_type.length, ArgumentValue):
+        if isinstance(data_type.length, AggregateMemberValue):
+            raise ExportError("AggregateMemberValue cannot be used by an argument type")
+        elif isinstance(data_type.length, ArgumentValue):
             dyn_el = ET.SubElement(end_idx_el, "DynamicValue")
             ref_el = ET.SubElement(dyn_el, "ArgumentInstanceRef")
             reference = data_type.length.argument
@@ -1078,7 +1086,7 @@ class XTCE12Generator:
                     parent,
                     system,
                     name=member_type_name,
-                    default=None,
+                    default=member.initial_value,
                     data_type=member,
                 )
             elif isinstance(member, EnumeratedMember):
@@ -1240,7 +1248,14 @@ class XTCE12Generator:
         ET.SubElement(start_idx_el, "FixedValue").text = "0"
 
         end_idx_el = ET.SubElement(dim_el, "EndingIndex")
-        if isinstance(data_type.length, ParameterValue):
+        if isinstance(data_type.length, AggregateMemberValue):
+            dyn_el = ET.SubElement(end_idx_el, "DynamicValue")
+            ref_el = ET.SubElement(dyn_el, "ParameterInstanceRef")
+            ref_el.attrib["parameterRef"] = data_type.length.member
+            ref_el.attrib[YAMCS_AGGREGATE_MEMBER_ATTRIBUTE] = "true"
+            adj_el = ET.SubElement(dyn_el, "LinearAdjustment")
+            adj_el.attrib["intercept"] = "-1"
+        elif isinstance(data_type.length, ParameterValue):
             dyn_el = ET.SubElement(end_idx_el, "DynamicValue")
             ref_el = ET.SubElement(dyn_el, "ParameterInstanceRef")
             parameter = data_type.length.parameter

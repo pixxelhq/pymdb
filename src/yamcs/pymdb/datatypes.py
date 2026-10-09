@@ -38,6 +38,18 @@ class ParameterValue:
 
 
 @dataclass
+class AggregateMemberValue:
+    member: str
+    """
+    Reference a member of the current enclosing aggregate.
+
+    This reference is resolved lexically by Yamcs, starting with the nearest
+    aggregate being processed. It is intended for dynamic lengths of
+    :class:`ArrayMember` objects.
+    """
+
+
+@dataclass
 class ArgumentValue:
     argument: Argument | str
     """
@@ -46,6 +58,9 @@ class ArgumentValue:
     The reference may also be specified as ``str``, representing the
     argument's name.
     """
+
+
+ArrayLength = int | ParameterValue | AggregateMemberValue | ArgumentValue
 
 
 class DynamicInteger(ParameterValue):
@@ -143,7 +158,7 @@ class ArrayDataType(DataType):
     def __init__(
         self,
         data_type: DataType,
-        length: int | ParameterValue | ArgumentValue,
+        length: ArrayLength,
         short_description: str | None = None,
         long_description: str | None = None,
         extra: Mapping[str, str] | None = None,
@@ -157,7 +172,7 @@ class ArrayDataType(DataType):
             encoding=encoding,
         )
         self.data_type: DataType = data_type
-        self.length: int | ParameterValue | ArgumentValue = length
+        self.length: ArrayLength = length
 
 
 class BinaryDataType(DataType):
@@ -437,7 +452,7 @@ class ArrayMember(Member, ArrayDataType):
         self,
         name: str,
         data_type: DataType,
-        length: int | ParameterValue | ArgumentValue,
+        length: ArrayLength,
         initial_value: Any = None,
         short_description: str | None = None,
         long_description: str | None = None,
