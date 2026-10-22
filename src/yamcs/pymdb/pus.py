@@ -35,15 +35,51 @@ from yamcs.pymdb.algorithms import UnnamedJavaAlgorithm
 from .ccsds import CcsdsHeader, add_ccsds_header
 
 
-# User settings
-BASIC_TIME_SIZE = 32
-FRACTIONAL_TIME_SIZE = 16
 TIME_APID = "Time"
 
 
 class CucTime(NamedTuple):
     epoch: Epoch
     pfield: int
+    pfield_contd: int | None = None
+
+    @property
+    def byte_sizes(self) -> tuple[int, int]:
+        """Return basic/fractional byte counts for the implicit CUC p-fields."""
+        if (
+            isinstance(self.pfield, bool)
+            or not isinstance(self.pfield, int)
+            or not 0 <= self.pfield <= 0xFF
+        ):
+            raise ValueError("pfield must be an integer between 0 and 255")
+
+        basic_bytes = 1 + ((self.pfield >> 2) & 0x03)
+        fractional_bytes = self.pfield & 0x03
+        if self.pfield & 0x80:
+            if (
+                isinstance(self.pfield_contd, bool)
+                or not isinstance(self.pfield_contd, int)
+                or not 0 <= self.pfield_contd <= 0x7F
+            ):
+                raise ValueError("An extended pfield requires pfield_contd between 0 and 127")
+            if self.pfield_contd & 0x03:
+                raise ValueError("The reserved low two bits of pfield_contd must be zero")
+            basic_bytes += (self.pfield_contd >> 5) & 0x03
+            fractional_bytes += (self.pfield_contd >> 2) & 0x07
+        elif self.pfield_contd is not None:
+            raise ValueError("pfield_contd requires the pfield extension bit")
+
+        if basic_bytes > 6 or fractional_bytes > 3 or basic_bytes + fractional_bytes > 8:
+            raise ValueError(
+                "CUC layout exceeds current Yamcs codec support: maximum 6 basic bytes, "
+                "3 fractional bytes and 8 total bytes"
+            )
+        return basic_bytes, fractional_bytes
+
+    @property
+    def bits(self) -> int:
+        """Number of time-value bits, excluding the implicit p-field octets."""
+        return 8 * sum(self.byte_sizes)
 
 
 class PusHeader(NamedTuple):
@@ -64,8 +100,23 @@ class PusHeader(NamedTuple):
     pus_tc_source_id: IntegerArgument
     pus_tc_command: Command
 
+    cuctime_fields: CucTime
+    tco_service: str | None = None
 
-def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
+
+def add_pus_header(
+    system: System,
+    cuctime_fields: CucTime,
+    *,
+    tco_service: str | None = None,
+) -> PusHeader:
+    if tco_service is not None and not isinstance(tco_service, str):
+        raise ValueError("tco_service must be a string or None")
+    tco_service = (tco_service.strip() or None) if tco_service else None
+
+    basic_bytes, fractional_bytes = cuctime_fields.byte_sizes
+    time_bits = 8 * (basic_bytes + fractional_bytes)
+
     ccsds_header: CcsdsHeader = add_ccsds_header(system)
     ccsds_header_bits = ccsds_header.tm_container.bits
     assert ccsds_header_bits is not None
@@ -111,31 +162,38 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         encoding=IntegerEncoding(bits=8),
     )
     basic_time_member = IntegerMember(
-        name="basic_time", signed=False, encoding=IntegerEncoding(bits=BASIC_TIME_SIZE)
+        name="basic_time", signed=False, encoding=IntegerEncoding(bits=8 * basic_bytes)
     )
-    fractional_time_member = IntegerMember(
-        name="fractional_time",
-        signed=False,
-        encoding=IntegerEncoding(bits=FRACTIONAL_TIME_SIZE),
-    )
+    time_members = [basic_time_member]
+    if fractional_bytes:
+        time_members.append(
+            IntegerMember(
+                name="fractional_time",
+                signed=False,
+                encoding=IntegerEncoding(bits=8 * fractional_bytes),
+            )
+        )
     absolute_time = AggregateParameter(
         system=system,
         name="absolute_time",
-        members=[basic_time_member, fractional_time_member],
+        members=time_members,
     )
+    time_decoder_config = {
+        "type": "CUC",
+        "epoch": cuctime_fields.epoch.name,
+        "pField": cuctime_fields.pfield,
+    }
+    if cuctime_fields.pfield_contd is not None:
+        time_decoder_config["pFieldCont"] = cuctime_fields.pfield_contd
+    if tco_service:
+        time_decoder_config["tcoService"] = tco_service
     onboard_cuctime = AbsoluteTimeParameter(
         system=system,
         name="onboard_cuctime",
         encoding=BinaryTimeEncoding(
-            bits=-1,
+            bits=time_bits,
             decoder=UnnamedJavaAlgorithm(
-                java=f"""
-                    org.yamcs.algo.TimeBinaryDecoder({{
-                        type: CUC,
-                        epoch: {cuctime_fields.epoch.name},
-                        implicitPField: {cuctime_fields.pfield}
-                    }})
-                    """.strip()
+                java=f"org.yamcs.algo.TimeBinaryDecoder({json.dumps(time_decoder_config)})"
             ),
         ),
     )
@@ -145,12 +203,12 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         name="pus_time_packet",
         abstract=False,
         base=ccsds_header.tm_container,
-        bits=ccsds_header_bits + FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE,
+        bits=ccsds_header_bits + 8 + time_bits,
         entries=[
             ParameterEntry(rate_exponent),
             ParameterEntry(absolute_time),
             ParameterEntry(
-                onboard_cuctime, offset=-(FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE)
+                onboard_cuctime, offset=-time_bits
             ),
         ],
         condition=EqExpression(
@@ -163,8 +221,7 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         name="pus_space_packet",
         abstract=True,
         base=ccsds_header.tm_container,
-        bits=ccsds_header_bits
-        + (((FRACTIONAL_TIME_SIZE // 8) + (BASIC_TIME_SIZE // 8) + 7) * 8),
+        bits=ccsds_header_bits + 7 * 8 + time_bits,
         entries=[
             ParameterEntry(pus_tm_version),
             ParameterEntry(pus_spacecraft_time_reference_status_member),
@@ -173,7 +230,7 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
             ParameterEntry(pus_tm_destination_id),
             ParameterEntry(absolute_time),
             ParameterEntry(
-                onboard_cuctime, offset=-(FRACTIONAL_TIME_SIZE + BASIC_TIME_SIZE)
+                onboard_cuctime, offset=-time_bits
             ),
         ],
         condition=NeExpression(
@@ -282,4 +339,6 @@ def add_pus_header(system: System, cuctime_fields: CucTime) -> PusHeader:
         pus_tc_subservice_type,
         pus_tc_source_id,
         pus_tc_command,
+        cuctime_fields=cuctime_fields,
+        tco_service=tco_service,
     )

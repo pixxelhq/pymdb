@@ -139,7 +139,7 @@ PUS packets
 .. index:: PusHeader
 .. index:: CucTime
 
-``pus.add_pus_header(system, cuctime_fields)`` layers PUS telemetry and
+``pus.add_pus_header(system, cuctime_fields, tco_service=None)`` layers PUS telemetry and
 telecommand secondary headers on top of the CCSDS helper. It therefore
 uses the same JSON ``apids`` configuration. Reserve APID 0 for the time
 packet; the remaining APIDs are treated as ordinary PUS packets.
@@ -163,7 +163,38 @@ P-field passed to Yamcs's binary time decoder:
 The returned ``PusHeader`` exposes the underlying CCSDS header, decoded
 onboard CUC time, telemetry service fields and container, command
 acknowledgement-flag members, command service arguments and the abstract
-PUS command.
+PUS command. It also retains the supplied ``CucTime`` object as
+``pus_header.cuctime_fields`` so service adapters can reuse its ``pfield``,
+optional ``pfield_contd``, and ``epoch`` without separate arguments or defaults.
+
+For an extended CUC format, set the first octet's extension bit and supply the
+extension octet through ``CucTime.pfield_contd``:
+
+.. code-block:: python
+
+   cuctime_fields = pus.CucTime(
+       epoch=Y.Epoch.UNIX,
+       pfield=0xAE,
+       pfield_contd=0x20,
+   )
+   assert cuctime_fields.byte_sizes == (5, 2)
+   assert cuctime_fields.bits == 56
+
+The extension adds basic bytes from bits 6–5 and fractional bytes from bits
+4–2. Neither p-field octet is transmitted as part of the time value. The
+generated Yamcs configuration uses the runtime key ``pFieldCont``. Header
+members, decoder width, container sizes, and overlay offsets all follow the
+derived layout. A zero-fraction layout omits the raw ``fractional_time`` member.
+
+An extended first octet requires an extension; an extension without that bit is
+rejected. Only one extension octet is supported, with its reserved low bits zero.
+The current Yamcs-compatible profile supports up to six basic bytes, three
+fractional bytes, and eight total time-value bytes. Layouts beyond those limits
+raise ``ValueError`` instead of generating unsupported encodings.
+
+The optional keyword-only ``tco_service`` names a Yamcs time correlation service.
+It is stored as ``pus_header.tco_service`` and used by the header's CUC decoder
+and service adapters. When omitted or blank, times use the configured epoch.
 
 
 CubeSat Space Protocol
