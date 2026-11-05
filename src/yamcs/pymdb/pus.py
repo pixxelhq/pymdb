@@ -36,7 +36,7 @@ from .ccsds import CcsdsHeader, add_ccsds_header
 
 
 TIME_APID = "Time"
-
+PUS_SECONDARY_HEADER_SIZE = 7   # Size n bytes
 
 class CucTime(NamedTuple):
     epoch: Epoch
@@ -203,7 +203,7 @@ def add_pus_header(
         name="pus_time_packet",
         abstract=False,
         base=ccsds_header.tm_container,
-        bits=ccsds_header_bits + 8 + time_bits,
+        bits=ccsds_header_bits + rate_exponent.encoding.bits + time_bits,
         entries=[
             ParameterEntry(rate_exponent),
             ParameterEntry(absolute_time),
@@ -221,7 +221,7 @@ def add_pus_header(
         name="pus_space_packet",
         abstract=True,
         base=ccsds_header.tm_container,
-        bits=ccsds_header_bits + 7 * 8 + time_bits,
+        bits=ccsds_header_bits + (PUS_SECONDARY_HEADER_SIZE * 8) + time_bits,
         entries=[
             ParameterEntry(pus_tm_version),
             ParameterEntry(pus_spacecraft_time_reference_status_member),
