@@ -53,3 +53,18 @@ pip install -e /absolute/path/to/pymdb
 ## License
 
 LGPL-3.0. See [LICENSE](https://github.com/yamcs/pymdb/blob/master/LICENSE)
+
+### Aggregate-local array lengths (Pixxel extension)
+
+Use `AggregateMemberValue("member_name")` for an array length read from an
+integer member of the enclosing aggregate. XML exports now put
+`AncillaryData name="Yamcs:AggregateMember"` on `ArrayParameterType`, before
+`DimensionList`, with the member name as the entry's text.
+
+The older `yamcs:aggregateMember` attribute and Yamcs's
+`XtceStaxReader.isAggregateMemberReference()` compatibility reader are scheduled
+for deprecation soon. Legacy imports remain supported; no deprecation release
+or removal date has been set. Regenerate existing XML with the updated PyMDB
+to migrate to ancillary data. The `AggregateMemberValue` Python API remains
+supported and is not being deprecated. See [the parameter guide](docs/parameters.rst)
+for details.

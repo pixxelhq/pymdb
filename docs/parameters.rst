@@ -336,3 +336,30 @@ count member without creating a top-level parameter:
        data_type=Y.FloatDataType(encoding=Y.float32_t),
        length=Y.AggregateMemberValue("sample_count"),
    )
+
+Aggregate-local array lengths are exported using an ``AncillaryData`` entry on
+``ArrayParameterType``, before ``DimensionList``::
+
+   <AncillaryDataSet>
+     <AncillaryData name="Yamcs:AggregateMember">count</AncillaryData>
+   </AncillaryDataSet>
+
+This marks matching ``ParameterInstanceRef parameterRef="count"`` references in
+that type's dimensions as aggregate-local. The XML validates against XTCE 1.2
+and 1.3; interpreting this metadata requires the Pixxel Yamcs extension.
+
+.. note::
+
+   The older ``yamcs:aggregateMember`` XML attribute and Yamcs's
+   ``XtceStaxReader.isAggregateMemberReference()`` compatibility reader are
+   scheduled for deprecation soon. That method reads only the old attribute;
+   current ancillary-data markers are read separately. Legacy XML remains
+   readable in Yamcs, but new PyMDB exports always use ancillary data.
+   No deprecation release or removal date has been set.
+
+   Continue using ``AggregateMemberValue("member_name")`` in Python; this API
+   is not being deprecated. Regenerate existing XML with the updated PyMDB to
+   migrate it. When migrating by hand, remove ``yamcs:aggregateMember`` from
+   ``ParameterInstanceRef`` and add the member name as the ancillary entry's
+   text on ``ArrayParameterType`` before ``DimensionList``. Keep ``parameterRef``
+   and any linear adjustment or calibrated/raw selection unchanged.
