@@ -49,6 +49,12 @@ class AggregateMemberValue:
     This reference is resolved lexically by Yamcs, starting with the nearest
     aggregate being processed. It is intended for dynamic lengths of
     :class:`ArrayMember` objects.
+
+    Exported as ``AncillaryData name="Yamcs:AggregateMember"`` on the array
+    parameter type. The older ``yamcs:aggregateMember`` XML attribute and
+    Yamcs's ``XtceStaxReader.isAggregateMemberReference()`` compatibility
+    reader are scheduled for deprecation soon. New XML uses ancillary data;
+    this Python class remains the supported API and is not being deprecated.
     """
 
 

@@ -126,9 +126,9 @@ if TYPE_CHECKING:
     from yamcs.pymdb.systems import System
 
 
-YAMCS_XTCE_NAMESPACE = "http://yamcs.org/schema/xtce"
-YAMCS_AGGREGATE_MEMBER_ATTRIBUTE = f"{{{YAMCS_XTCE_NAMESPACE}}}aggregateMember"
-ET.register_namespace("yamcs", YAMCS_XTCE_NAMESPACE)
+# Current XML format. The older yamcs:aggregateMember attribute and Yamcs's
+# isAggregateMemberReference() compatibility reader are scheduled for deprecation soon.
+YAMCS_AGGREGATE_MEMBER = "Yamcs:AggregateMember"
 
 
 def _to_xml_value(value: Any):
@@ -1298,6 +1298,12 @@ class XTCEGenerator:
         element_type_name = f"{name}__el"
         el.attrib["arrayTypeRef"] = element_type_name
 
+        if isinstance(data_type.length, AggregateMemberValue):
+            # Keep the marker on the type, where XTCE allows AncillaryDataSet.
+            # Do not restore the legacy attribute on ParameterInstanceRef: its reader
+            # (XtceStaxReader.isAggregateMemberReference) is scheduled for deprecation soon.
+            self.add_ancillary_data(el, {YAMCS_AGGREGATE_MEMBER: data_type.length.member})
+
         dims_el = ET.SubElement(el, "DimensionList")
         dim_el = ET.SubElement(dims_el, "Dimension")
         start_idx_el = ET.SubElement(dim_el, "StartingIndex")
@@ -1308,7 +1314,6 @@ class XTCEGenerator:
             dyn_el = ET.SubElement(end_idx_el, "DynamicValue")
             ref_el = ET.SubElement(dyn_el, "ParameterInstanceRef")
             ref_el.attrib["parameterRef"] = data_type.length.member
-            ref_el.attrib[YAMCS_AGGREGATE_MEMBER_ATTRIBUTE] = "true"
             adj_el = ET.SubElement(dyn_el, "LinearAdjustment")
             adj_el.attrib["intercept"] = "-1"
         elif isinstance(data_type.length, ParameterValue):
