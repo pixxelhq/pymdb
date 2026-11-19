@@ -209,6 +209,7 @@ class BinaryArgument(Argument[Union[bytes, bytearray, str]], BinaryDataType):
         *,
         min_length: int | None = None,
         max_length: int | None = None,
+        embedded_tc: bool = False,
         default: bytes | bytearray | str | None = None,
         short_description: str | None = None,
         long_description: str | None = None,
@@ -220,6 +221,7 @@ class BinaryArgument(Argument[Union[bytes, bytearray, str]], BinaryDataType):
             self,
             min_length=min_length,
             max_length=max_length,
+            embedded_tc=embedded_tc,
         )
         Argument.__init__(
             self,

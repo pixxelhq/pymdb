@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from yamcs.pymdb.algorithms import UnnamedAlgorithm
+    from yamcs.pymdb.datatypes import AggregateMemberValue, ParameterValue
 
 
 class Charset(Enum):
@@ -107,8 +108,20 @@ class BinaryEncoding(Encoding):
         length_bits: int | None = None,
         encoder: UnnamedAlgorithm | None = None,
         decoder: UnnamedAlgorithm | None = None,
+        *,
+        size_from: ParameterValue | AggregateMemberValue | None = None,
+        size_slope: int = 1,
+        size_intercept: int = 0,
     ) -> None:
         super().__init__(bits=bits)
+
+        if size_from is not None and (bits is not None or length_bits is not None):
+            raise ValueError("A dynamic binary size cannot also be fixed or length-tagged")
+        self.size_from = size_from
+
+        """Parameter or enclosing aggregate member that determines the binary size in bits."""
+        self.size_slope = size_slope
+        self.size_intercept = size_intercept
 
         self.length_bits: int | None = length_bits
         """

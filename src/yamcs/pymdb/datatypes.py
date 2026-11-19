@@ -47,11 +47,11 @@ class AggregateMemberValue:
     Reference a member of the current enclosing aggregate.
 
     This reference is resolved lexically by Yamcs, starting with the nearest
-    aggregate being processed. It is intended for dynamic lengths of
-    :class:`ArrayMember` objects.
+    aggregate being processed. It can supply an array member's element count
+    or a binary member's size in bits.
 
     Exported as ``AncillaryData name="Yamcs:AggregateMember"`` on the array
-    parameter type. The older ``yamcs:aggregateMember`` XML attribute and
+    or binary parameter type. The older ``yamcs:aggregateMember`` XML attribute and
     Yamcs's ``XtceStaxReader.isAggregateMemberReference()`` compatibility
     reader are scheduled for deprecation soon. New XML uses ancillary data;
     this Python class remains the supported API and is not being deprecated.
@@ -201,6 +201,8 @@ class BinaryDataType(DataType):
         extra: Mapping[str, str] | None = None,
         units: str | None = None,
         encoding: Encoding | None = None,
+        *,
+        embedded_tc: bool = False,
     ) -> None:
         DataType.__init__(
             self,
@@ -216,6 +218,9 @@ class BinaryDataType(DataType):
 
         self.max_length: int | None = max_length
         """Maximum length in bytes"""
+
+        self.embedded_tc: bool = embedded_tc
+        """Ask Yamcs to postprocess this command argument as an embedded telecommand."""
 
 
 class BooleanDataType(DataType):
@@ -521,11 +526,14 @@ class BinaryMember(Member[Union[bytes, bytearray, str]], BinaryDataType):
         extra: Mapping[str, str] | None = None,
         units: str | None = None,
         encoding: Encoding | None = None,
+        *,
+        embedded_tc: bool = False,
     ) -> None:
         BinaryDataType.__init__(
             self,
             min_length=min_length,
             max_length=max_length,
+            embedded_tc=embedded_tc,
         )
         Member.__init__(
             self,

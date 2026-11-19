@@ -773,8 +773,13 @@ class XTCEGenerator:
             opts.append(f"minLength={data_type.min_length}")
         if data_type.max_length is not None:
             opts.append(f"maxLength={data_type.max_length}")
+        ancillary_data: dict[str, str | list[str]] = {}
         if opts:
-            self.add_ancillary_data(el, {"Yamcs": opts})
+            ancillary_data["Yamcs"] = opts
+        if data_type.embedded_tc:
+            ancillary_data["Yamcs:EmbeddedTc"] = ""
+        if ancillary_data:
+            self.add_ancillary_data(el, ancillary_data)
 
         if data_type.units:
             unit_set_el = ET.SubElement(el, "UnitSet")
@@ -782,6 +787,10 @@ class XTCEGenerator:
             unit_el.attrib["form"] = "calibrated"
             unit_el.text = data_type.units
 
+        if isinstance(data_type.encoding, BinaryEncoding) and isinstance(
+            data_type.encoding.size_from, AggregateMemberValue
+        ):
+            raise ExportError("AggregateMemberValue cannot be used by an argument type")
         if data_type.encoding:
             self.add_data_encoding(el, system, data_type.encoding)
 
@@ -1157,7 +1166,7 @@ class XTCEGenerator:
                     parent,
                     system,
                     name=member_type_name,
-                    default=None,
+                    default=member.initial_value,
                     data_type=member,
                 )
             elif isinstance(member, StringMember):
@@ -1476,6 +1485,13 @@ class XTCEGenerator:
         el.attrib["name"] = name
         if initial_value:
             el.attrib["initialValue"] = _to_xml_value(initial_value)
+
+        if isinstance(data_type.encoding, BinaryEncoding) and isinstance(
+            data_type.encoding.size_from, AggregateMemberValue
+        ):
+            self.add_ancillary_data(
+                el, {YAMCS_AGGREGATE_MEMBER: data_type.encoding.size_from.member}
+            )
 
         if data_type.units:
             unit_set_el = ET.SubElement(el, "UnitSet")
@@ -1855,6 +1871,15 @@ class XTCEGenerator:
         if encoding.bits is not None:
             fv_el = ET.SubElement(size_el, "FixedValue")
             fv_el.text = str(encoding.bits)
+        elif encoding.size_from is not None:
+            self.add_integer_value(size_el, system, encoding.size_from, allow_argument=False)
+            if encoding.size_slope != 1 or encoding.size_intercept != 0:
+                ET.SubElement(
+                    size_el[0],
+                    "LinearAdjustment",
+                    slope=str(encoding.size_slope),
+                    intercept=str(encoding.size_intercept),
+                )
         else:
             # XTCE 1.2 enforces the use of either DynamicValue or DiscreteLookupList.
             # Use a special value recognized by Yamcs to work around this limitation.
@@ -2573,7 +2598,7 @@ class XTCEGenerator:
         self,
         parent: ET.Element,
         system: System,
-        value: int | ParameterValue | ArgumentValue,
+        value: int | ParameterValue | ArgumentValue | AggregateMemberValue,
         allow_argument: bool,
     ):
         if isinstance(value, int):
@@ -2585,6 +2610,9 @@ class XTCEGenerator:
                 value.parameter,
                 start=system,
             )
+        elif isinstance(value, AggregateMemberValue):
+            dyn_el = ET.SubElement(parent, "DynamicValue")
+            ET.SubElement(dyn_el, "ParameterInstanceRef", parameterRef=value.member)
         elif isinstance(value, ArgumentValue):
             if not allow_argument:
                 raise ExportError(
