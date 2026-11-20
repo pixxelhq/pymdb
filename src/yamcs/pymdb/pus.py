@@ -17,6 +17,7 @@ from yamcs.pymdb.encodings import (
     uint8_t,
     IntegerEncoding,
     BinaryTimeEncoding,
+    BinaryEncoding,
 )
 from yamcs.pymdb.expressions import (
     ParameterMember,
@@ -28,6 +29,7 @@ from yamcs.pymdb.parameters import (
     AggregateParameter,
     IntegerParameter,
     AbsoluteTimeParameter,
+    BinaryParameter,
 )
 from yamcs.pymdb.systems import System
 from yamcs.pymdb.algorithms import UnnamedJavaAlgorithm
@@ -102,6 +104,7 @@ class PusHeader(NamedTuple):
 
     cuctime_fields: CucTime
     tco_service: str | None = None
+    spare_field_size: int = 0
 
 
 def add_pus_header(
@@ -109,7 +112,11 @@ def add_pus_header(
     cuctime_fields: CucTime,
     *,
     tco_service: str | None = None,
+    spare_field_size: int = 0,
 ) -> PusHeader:
+    if spare_field_size < 0 or spare_field_size % 8:
+        raise ValueError("spare_field_size must be a non-negative multiple of 8 bits")
+
     if tco_service is not None and not isinstance(tco_service, str):
         raise ValueError("tco_service must be a string or None")
     tco_service = (tco_service.strip() or None) if tco_service else None
@@ -216,12 +223,21 @@ def add_pus_header(
             value=next((k for k, v in apids.items() if int(v) == 0), TIME_APID),
         ),
     )
+    tm_spare_entries = []
+    tc_spare_entries = []
+    if spare_field_size:
+        spare_field = BinaryParameter(system=system, name="spare_field", encoding=BinaryEncoding(bits=spare_field_size))
+        tm_spare_entries.append(ParameterEntry(spare_field))
+        tc_spare_entries.append(
+            FixedValueEntry(name="spare_field", binary=bytes(spare_field_size // 8), bits=spare_field_size)
+        )
+
     pus_tm_nontime_container = Container(
         system=system,
         name="pus_space_packet",
         abstract=True,
         base=ccsds_header.tm_container,
-        bits=ccsds_header_bits + (PUS_SECONDARY_HEADER_SIZE * 8) + time_bits,
+        bits=ccsds_header_bits + (PUS_SECONDARY_HEADER_SIZE * 8) + time_bits + spare_field_size,
         entries=[
             ParameterEntry(pus_tm_version),
             ParameterEntry(pus_spacecraft_time_reference_status_member),
@@ -232,6 +248,7 @@ def add_pus_header(
             ParameterEntry(
                 onboard_cuctime, offset=-time_bits
             ),
+            *tm_spare_entries,
         ],
         condition=NeExpression(
             ref=ccsds_header.tm_apid,
@@ -308,6 +325,7 @@ def add_pus_header(
             ArgumentEntry(pus_tc_service_type),
             ArgumentEntry(pus_tc_subservice_type),
             ArgumentEntry(pus_tc_source_id),
+            *tc_spare_entries,
         ],
     )
 
@@ -341,4 +359,5 @@ def add_pus_header(
         pus_tc_command,
         cuctime_fields=cuctime_fields,
         tco_service=tco_service,
+        spare_field_size=spare_field_size,
     )
